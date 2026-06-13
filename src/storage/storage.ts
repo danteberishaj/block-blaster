@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const HIGH_SCORE_KEY = '@block_blaster/high_score';
 const TUTORIAL_KEY = '@block_blaster/tutorial_seen';
+const SOUND_KEY = '@block_blaster/sound_on';
 
 export async function getHighScore(): Promise<number> {
   try {
@@ -31,6 +32,23 @@ export async function hasSeenTutorial(): Promise<boolean> {
 export async function markTutorialSeen(): Promise<void> {
   try {
     await AsyncStorage.setItem(TUTORIAL_KEY, '1');
+  } catch {
+    // ignore
+  }
+}
+
+export async function getSoundOn(): Promise<boolean> {
+  try {
+    const v = await AsyncStorage.getItem(SOUND_KEY);
+    return v === null ? true : v === '1'; // default on
+  } catch {
+    return true;
+  }
+}
+
+export async function saveSoundOn(on: boolean): Promise<void> {
+  try {
+    await AsyncStorage.setItem(SOUND_KEY, on ? '1' : '0');
   } catch {
     // ignore
   }

@@ -27,6 +27,7 @@ import { blockColors, palette, radii, spacing } from '../theme/theme';
 import { getHighScore } from '../storage/storage';
 import LogoMark from './LogoMark';
 import Tutorial from './Tutorial';
+import SoundToggle from './SoundToggle';
 
 const { width, height } = Dimensions.get('window');
 
@@ -133,6 +134,10 @@ export default function HomeScreen({ onPlay }: Props) {
       <FloatingBlock colorIndex={2} left={width * 0.82} top={height * 0.68} size={64} delay={1600} />
       <FloatingBlock colorIndex={4} left={width * 0.08} top={height * 0.72} size={48} delay={400} />
 
+      <View style={[styles.soundCorner, { top: topPad }]}>
+        <SoundToggle />
+      </View>
+
       <View style={[styles.content, { paddingTop: topPad }]}>
         <View style={styles.hero}>
           <Animated.View entering={FadeIn.duration(500)} style={logoStyle}>
@@ -187,6 +192,11 @@ export default function HomeScreen({ onPlay }: Props) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: palette.bg },
+  soundCorner: {
+    position: 'absolute',
+    right: spacing.lg,
+    zIndex: 10,
+  },
   content: {
     flex: 1,
     paddingHorizontal: spacing.xl,

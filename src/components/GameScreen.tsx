@@ -45,6 +45,8 @@ import Tutorial from './Tutorial';
 import ClearBurst, { Burst } from './ClearBurst';
 import ComboPopup, { ComboData } from './ComboPopup';
 import HelperBar, { HelperCounts } from './HelperBar';
+import SoundToggle from './SoundToggle';
+import { playClear } from '../audio/audio';
 
 const START_HELPERS: HelperCounts = { shuffle: 3, bomb: 3, hint: 3 };
 
@@ -201,6 +203,7 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
       setScore(nextScore);
 
       if (cleared.clearedCells.length > 0) {
+        playClear();
         Haptics.notificationAsync(
           Haptics.NotificationFeedbackType.Success
         ).catch(() => {});
@@ -445,16 +448,19 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
           <Text style={styles.brand}>
             BLOCK <Text style={{ color: palette.accent }}>BLAST</Text>
           </Text>
-          <Pressable
-            onPress={restart}
-            hitSlop={10}
-            style={({ pressed }) => [
-              styles.iconBtn,
-              { opacity: pressed ? 0.7 : 1 },
-            ]}
-          >
-            <Text style={styles.iconText}>↻</Text>
-          </Pressable>
+          <View style={styles.rightCluster}>
+            <SoundToggle />
+            <Pressable
+              onPress={restart}
+              hitSlop={10}
+              style={({ pressed }) => [
+                styles.iconBtn,
+                { opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              <Text style={styles.iconText}>↻</Text>
+            </Pressable>
+          </View>
         </View>
 
         <Header score={score} highScore={highScore} isNewBest={isNewBest} />
@@ -587,6 +593,11 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '900',
     marginTop: -2,
+  },
+  rightCluster: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   boardWrap: {
     flex: 1,

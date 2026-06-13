@@ -8,6 +8,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import GameScreen from './src/components/GameScreen';
 import HomeScreen from './src/components/HomeScreen';
 import AnimatedSplash from './src/components/AnimatedSplash';
+import { initAudio } from './src/audio/audio';
 import { palette } from './src/theme/theme';
 
 // Keep the native splash up until our JS is ready, then hand off to the
@@ -23,6 +24,8 @@ export default function App() {
   useEffect(() => {
     // Native splash can drop now; the animated splash takes over instantly.
     SplashScreen.hideAsync().catch(() => {});
+    // Start the background music + load the line-clear sound.
+    initAudio();
   }, []);
 
   return (

@@ -12,6 +12,7 @@ score is saved on-device.
 - 🎮 Forgiving drag-and-drop: the piece **snaps to the nearest valid spot** (even hanging off the edge), with a colored ghost preview showing exactly where it lands
 - 🧰 **Helpers** (3 each per game): **Shuffle** new pieces · **Break** a single block (tap-to-smash) · **Hint** (highlights a move). Run out of room? "Shuffle & Continue" revives you on game over
 - 🔥 **Combos** — consecutive clears build a streak multiplier (×2, ×3…); multi-line clears pop "DOUBLE!/TRIPLE!" with escalating color + haptics
+- 🎵 **Audio** — a subtle looping ambient pad + a chime on line clears, with a mute toggle. All sound is **self-synthesized** (`scripts/generate-audio.mjs`), so it's genuinely royalty-free — no licences, no attribution
 - ✨ Animated splash screen — colored tiles assemble into the logo
 - 📚 First-launch tutorial (3 quick coachmark steps)
 - 💥 Line-clear burst effects + haptic feedback on place / clear
@@ -66,6 +67,16 @@ or layout there and re-run:
 
 ```bash
 node scripts/generate-icons.mjs
+```
+
+## Regenerate the audio
+
+`assets/audio/music.wav` (ambient loop) and `clear.wav` (line-clear chime) are
+synthesized from scratch in `scripts/generate-audio.mjs` — pure sine math, no samples,
+so it's licence-free. Tweak the chords/tempo and re-run:
+
+```bash
+node scripts/generate-audio.mjs
 ```
 
 ## Want an online leaderboard later?
