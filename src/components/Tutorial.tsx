@@ -1,18 +1,22 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
+  Easing,
+  Extrapolation,
   FadeIn,
   FadeOut,
+  interpolate,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
-  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { palette, radii, spacing } from '../theme/theme';
-import { makeShape } from '../game/shapes';
-import ShapeView from './ShapeView';
+import Block from './Block';
+
+const CLAMP = Extrapolation.CLAMP;
+const C = 22; // demo cell size
 
 interface Props {
   visible: boolean;
@@ -42,85 +46,194 @@ const STEPS = [
   },
 ];
 
-/** A little looping demo: a block slides into a row and the row clears. */
-function DemoAnimation({ step }: { step: number }) {
+/** A small empty grid slot. */
+function Slot() {
+  return (
+    <View style={{ width: C, height: C, padding: 1.5 }}>
+      <View
+        style={{
+          flex: 1,
+          borderRadius: 5,
+          backgroundColor: palette.cellEmpty,
+          borderWidth: 1,
+          borderColor: palette.cellEmptyBorder,
+        }}
+      />
+    </View>
+  );
+}
+
+/** A finger that holds a piece from just below it. */
+function Finger({ width }: { width: number }) {
+  return (
+    <Text style={{ position: 'absolute', top: C + 2, left: width / 2 - 10, fontSize: 20 }}>
+      👆
+    </Text>
+  );
+}
+
+const LOOP = { duration: 2800, easing: Easing.linear };
+
+/**
+ * Step 1 — Drag: a finger lifts a 2-piece from the tray and drops it into a
+ * 3x3 board, where it locks in. Self-resetting so the loop is seamless.
+ */
+function DragDemo() {
   const t = useSharedValue(0);
-
-  // drive a 0..1 loop
-  React.useEffect(() => {
+  useEffect(() => {
     t.value = 0;
-    t.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 1400 }),
-        withTiming(1, { duration: 400 })
-      ),
-      -1,
-      false
-    );
-  }, [step]);
+    t.value = withRepeat(withTiming(1, LOOP), -1, false);
+  }, []);
 
-  const cell = 22;
+  const startY = 3 * C + 10; // tray, below the grid
+  const targetY = C; // middle row
 
-  const dragStyle = useAnimatedStyle(() => {
-    // slide the piece from the right into the empty slot
-    const x = (1 - Math.min(t.value * 1.6, 1)) * (cell * 3);
-    const settle = t.value > 0.62 ? 0 : 1;
-    return {
-      transform: [{ translateX: x }],
-      opacity: settle ? 1 : 0,
-    };
-  });
+  const group = useAnimatedStyle(() => ({
+    // fade out at the row, return to the tray while hidden, then fade back in
+    opacity: interpolate(t.value, [0, 0.44, 0.52, 0.9, 0.98, 1], [1, 1, 0, 0, 1, 1], CLAMP),
+    transform: [
+      {
+        translateY: interpolate(
+          t.value,
+          [0, 0.5, 0.56, 0.66, 1],
+          [startY, targetY, targetY, startY, startY],
+          CLAMP
+        ),
+      },
+    ],
+  }));
+  const placed = useAnimatedStyle(() => ({
+    opacity: interpolate(t.value, [0.46, 0.56, 0.82, 0.94], [0, 1, 1, 0], CLAMP),
+  }));
 
-  const clearStyle = useAnimatedStyle(() => {
-    const cleared = step === 1 && t.value > 0.7;
-    return { opacity: cleared ? 0.15 : 1 };
-  });
+  return (
+    <View style={{ width: 3 * C, height: startY + C + 26, alignItems: 'center' }}>
+      {[0, 1, 2].map((r) => (
+        <View key={r} style={{ flexDirection: 'row' }}>
+          {[0, 1, 2].map((c) => (
+            <Slot key={c} />
+          ))}
+        </View>
+      ))}
+      {/* tray hint under the start position */}
+      <View
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: startY - 5,
+          width: 2 * C,
+          height: C + 10,
+          borderRadius: 8,
+          backgroundColor: palette.surfaceLight,
+          opacity: 0.45,
+        }}
+      />
+      {/* the blocks once locked in */}
+      <Animated.View style={[{ position: 'absolute', left: 0, top: targetY, flexDirection: 'row' }, placed]}>
+        <Block colorIndex={1} size={C} />
+        <Block colorIndex={1} size={C} />
+      </Animated.View>
+      {/* floating piece + finger */}
+      <Animated.View style={[{ position: 'absolute', left: 0, top: 0 }, group]}>
+        <View style={{ flexDirection: 'row' }}>
+          <Block colorIndex={1} size={C} />
+          <Block colorIndex={1} size={C} />
+        </View>
+        <Finger width={2 * C} />
+      </Animated.View>
+    </View>
+  );
+}
 
-  if (step >= 2) {
-    // non-animated illustrative steps
-    return (
-      <View style={styles.demoBox}>
+/**
+ * Step 2 — Clear: a finger drops the last block into a nearly-full row; the row
+ * completes, flashes white, and pops away. Self-resetting loop.
+ */
+function ClearDemo() {
+  const t = useSharedValue(0);
+  useEffect(() => {
+    t.value = 0;
+    t.value = withRepeat(withTiming(1, LOOP), -1, false);
+  }, []);
+
+  const rowTop = 42;
+  const gapX = 4 * C;
+  const aboveY = rowTop - C - 14;
+  const colColors = [2, 3, 0, 4];
+
+  const base = useAnimatedStyle(() => ({
+    opacity: interpolate(t.value, [0, 0.66, 0.76, 0.9, 1], [1, 1, 0, 0, 1], CLAMP),
+  }));
+  const completer = useAnimatedStyle(() => ({
+    opacity: interpolate(t.value, [0, 0.4, 0.46, 0.66, 0.76, 1], [0, 0, 1, 1, 0, 0], CLAMP),
+  }));
+  const pop = useAnimatedStyle(() => ({
+    transform: [{ scale: interpolate(t.value, [0, 0.62, 0.71, 0.8, 1], [1, 1, 1.18, 1, 1], CLAMP) }],
+  }));
+  const flash = useAnimatedStyle(() => ({
+    opacity: interpolate(t.value, [0.58, 0.68, 0.78], [0, 0.9, 0], CLAMP),
+  }));
+  const drop = useAnimatedStyle(() => ({
+    // drop in, fade out, return above while hidden, then fade back in
+    opacity: interpolate(t.value, [0, 0.4, 0.47, 0.9, 0.97, 1], [1, 1, 0, 0, 1, 1], CLAMP),
+    transform: [
+      {
+        translateY: interpolate(
+          t.value,
+          [0, 0.4, 0.5, 0.6, 1],
+          [aboveY, rowTop, rowTop, aboveY, aboveY],
+          CLAMP
+        ),
+      },
+    ],
+  }));
+
+  return (
+    <View style={{ width: 5 * C, height: rowTop + C + 30 }}>
+      {/* empty slots */}
+      <View style={{ position: 'absolute', left: 0, top: rowTop, flexDirection: 'row' }}>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <Slot key={i} />
+        ))}
+      </View>
+      {/* filled row (cols 0-3) + completer (col 4), popping together on clear */}
+      <Animated.View style={[{ position: 'absolute', left: 0, top: rowTop, width: 5 * C, height: C }, pop]}>
+        <Animated.View style={[{ position: 'absolute', left: 0, top: 0, flexDirection: 'row' }, base]}>
+          {colColors.map((ci, i) => (
+            <Block key={i} colorIndex={ci} size={C} />
+          ))}
+        </Animated.View>
+        <Animated.View style={[{ position: 'absolute', left: gapX, top: 0 }, completer]}>
+          <Block colorIndex={1} size={C} />
+        </Animated.View>
+      </Animated.View>
+      {/* white flash on clear */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          { position: 'absolute', left: 0, top: rowTop, width: 5 * C, height: C, borderRadius: 6, backgroundColor: '#fff' },
+          flash,
+        ]}
+      />
+      {/* dropping block + finger */}
+      <Animated.View style={[{ position: 'absolute', left: gapX, top: 0 }, drop]}>
+        <Block colorIndex={1} size={C} />
+        <Finger width={C} />
+      </Animated.View>
+    </View>
+  );
+}
+
+function DemoAnimation({ step }: { step: number }) {
+  return (
+    <View style={styles.demoBox}>
+      {step === 0 && <DragDemo />}
+      {step === 1 && <ClearDemo />}
+      {step >= 2 && (
         <Text style={{ fontSize: step === 2 ? 44 : 32, letterSpacing: 6 }}>
           {step === 2 ? '🚫' : '🔀💣💡'}
         </Text>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.demoBox}>
-      <Animated.View style={[{ flexDirection: 'row' }, clearStyle]}>
-        {[0, 1, 2, 3, 4].map((i) => (
-          <View
-            key={i}
-            style={{
-              width: cell,
-              height: cell,
-              padding: 2,
-            }}
-          >
-            <View
-              style={{
-                flex: 1,
-                borderRadius: 5,
-                backgroundColor:
-                  i < 4 ? palette.cellEmpty : 'transparent',
-                borderWidth: 1,
-                borderColor: palette.cellEmptyBorder,
-              }}
-            />
-          </View>
-        ))}
-      </Animated.View>
-      {/* the dragging single block that fills the last slot */}
-      <Animated.View
-        style={[
-          { position: 'absolute', right: 0, top: 0 },
-          dragStyle,
-        ]}
-      >
-        <ShapeView shape={makeShape(0, 1)} cell={cell} />
-      </Animated.View>
+      )}
     </View>
   );
 }
@@ -233,7 +346,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   demoBox: {
-    height: 70,
+    height: 138,
     alignItems: 'center',
     justifyContent: 'center',
     marginVertical: spacing.sm,
