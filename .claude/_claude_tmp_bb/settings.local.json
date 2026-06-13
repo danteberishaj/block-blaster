@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx --yes create-expo-app@latest . --template blank-typescript)",
+      "Bash(mv .claude ../_claude_tmp_bb && echo \"moved\")"
+    ]
+  }
+}
