@@ -1,6 +1,7 @@
 // Synthesizes royalty-free game audio (we author it, so it's licence-free):
 //   - music.wav : a subtle, seamless-looping ambient pad
 //   - clear.wav : a soft rising chime for line clears
+//   - cross.wav : a brighter hit for simultaneous row+column clears
 // Run with: node scripts/generate-audio.mjs
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -106,7 +107,43 @@ function makeClear() {
   writeWav('clear.wav', out);
 }
 
+// ---------- Cross Blast hit (~0.9s) ----------
+function makeCrossBlast() {
+  const dur = 0.9;
+  const N = Math.floor(SR * dur);
+  const notes = [392.0, 523.25, 783.99, 1174.66]; // G4 C5 G5 D6
+  const onset = [0, 0.035, 0.08, 0.13];
+  const out = new Float32Array(N);
+
+  for (let n = 0; n < N; n++) {
+    const t = n / SR;
+    let v = 0;
+
+    const thumpEnv = Math.exp(-t / 0.08);
+    v += thumpEnv * 0.6 * Math.sin(2 * Math.PI * 88 * t);
+
+    for (let i = 0; i < notes.length; i++) {
+      const dt = t - onset[i];
+      if (dt < 0) continue;
+      const env = Math.exp(-dt / 0.24);
+      const f = notes[i];
+      v += env * (
+        Math.sin(2 * Math.PI * f * t) +
+        0.24 * Math.sin(2 * Math.PI * 2 * f * t)
+      );
+    }
+
+    const shimmer = Math.exp(-t / 0.18) * Math.sin(2 * Math.PI * 1760 * t);
+    const tailFade = t > dur - 0.04 ? (dur - t) / 0.04 : 1;
+    out[n] = (v + shimmer * 0.18) * tailFade;
+  }
+
+  normalize(out, 0.86);
+  writeWav('cross.wav', out);
+}
+
 console.log('Generating audio →', OUT);
 makeMusic();
 makeClear();
+makeCrossBlast();
 console.log('Done.');

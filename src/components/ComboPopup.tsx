@@ -18,9 +18,11 @@ export interface ComboData {
   sub: string; // secondary, e.g. "+120"
   intensity: number; // drives color (max of combo / lines)
   centerY: number; // window y to anchor on (board center)
+  variant?: 'clear' | 'combo' | 'cross';
 }
 
-function colorFor(intensity: number): string {
+function colorFor(intensity: number, variant?: ComboData['variant']): string {
+  if (variant === 'cross') return palette.success;
   if (intensity >= 6) return palette.danger;
   if (intensity >= 4) return '#C79BFF';
   if (intensity >= 3) return palette.gold;
@@ -60,7 +62,7 @@ export default function ComboPopup({
     transform: [{ translateY: ty.value }, { scale: scale.value }],
   }));
 
-  const color = colorFor(data.intensity);
+  const color = colorFor(data.intensity, data.variant);
 
   return (
     <View

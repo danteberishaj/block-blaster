@@ -5,6 +5,7 @@ const MUSIC_VOLUME = 0.32; // subtle background level
 
 let music: AudioPlayer | null = null;
 let clear: AudioPlayer | null = null;
+let crossBlast: AudioPlayer | null = null;
 let soundOn = true;
 let initialized = false;
 
@@ -31,6 +32,9 @@ export async function initAudio(): Promise<void> {
 
     clear = createAudioPlayer(require('../../assets/audio/clear.wav'));
     clear.volume = 0.9;
+
+    crossBlast = createAudioPlayer(require('../../assets/audio/cross.wav'));
+    crossBlast.volume = 0.95;
 
     if (soundOn) music.play();
   } catch {
@@ -62,6 +66,16 @@ export function playClear(): void {
   if (!soundOn || !clear) return;
   try {
     clear.seekTo(0).then(() => clear?.play()).catch(() => {});
+  } catch {
+    // ignore
+  }
+}
+
+/** Play the stronger simultaneous row+column clear cue. */
+export function playCrossBlast(): void {
+  if (!soundOn || !crossBlast) return;
+  try {
+    crossBlast.seekTo(0).then(() => crossBlast?.play()).catch(() => {});
   } catch {
     // ignore
   }

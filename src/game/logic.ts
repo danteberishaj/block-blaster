@@ -112,33 +112,6 @@ export function canPlaceAnywhere(board: Board, shape: Shape): boolean {
   return false;
 }
 
-/**
- * All cells orthogonally connected to (r,c) that share its color — i.e. the
- * whole contiguous block "shape" you tapped. Empty cell -> [].
- */
-export function connectedSameColor(
-  board: Board,
-  r: number,
-  c: number
-): [number, number][] {
-  const color = board[r][c];
-  if (color === null) return [];
-  const out: [number, number][] = [];
-  const seen = new Set<string>();
-  const stack: [number, number][] = [[r, c]];
-  while (stack.length) {
-    const [cr, cc] = stack.pop()!;
-    if (cr < 0 || cr >= BOARD_SIZE || cc < 0 || cc >= BOARD_SIZE) continue;
-    const key = `${cr},${cc}`;
-    if (seen.has(key)) continue;
-    if (board[cr][cc] !== color) continue;
-    seen.add(key);
-    out.push([cr, cc]);
-    stack.push([cr + 1, cc], [cr - 1, cc], [cr, cc + 1], [cr, cc - 1]);
-  }
-  return out;
-}
-
 /** First legal top-left position for a shape, scanning top-left to bottom-right. */
 export function findPlacement(
   board: Board,
@@ -172,6 +145,96 @@ export function findHint(
     }
   }
   return fallback;
+}
+
+export interface ShapeOpportunity {
+  placements: number;
+  maxImmediateLineClear: number;
+}
+
+export interface TrayOpportunity {
+  playableCount: number;
+  totalPlacements: number;
+  clearCapableCount: number;
+  maxImmediateLineClear: number;
+  dead: boolean;
+}
+
+export function analyzeShapeOpportunity(
+  board: Board,
+  shape: Shape
+): ShapeOpportunity {
+  let placements = 0;
+  let maxImmediateLineClear = 0;
+
+  for (let r = 0; r <= BOARD_SIZE - shape.height; r++) {
+    for (let c = 0; c <= BOARD_SIZE - shape.width; c++) {
+      if (!canPlace(board, shape, r, c)) continue;
+      placements += 1;
+
+      const clear = clearLines(placeShape(board, shape, r, c)).lineCount;
+      maxImmediateLineClear = Math.max(maxImmediateLineClear, clear);
+    }
+  }
+
+  return { placements, maxImmediateLineClear };
+}
+
+export function analyzeTrayOpportunity(
+  board: Board,
+  tray: Shape[]
+): TrayOpportunity {
+  const shapeStats = tray.map((shape) => analyzeShapeOpportunity(board, shape));
+  const playableCount = shapeStats.filter((stats) => stats.placements > 0).length;
+  const totalPlacements = shapeStats.reduce(
+    (sum, stats) => sum + stats.placements,
+    0
+  );
+  const clearCapableCount = shapeStats.filter(
+    (stats) => stats.maxImmediateLineClear > 0
+  ).length;
+  const maxImmediateLineClear = shapeStats.reduce(
+    (max, stats) => Math.max(max, stats.maxImmediateLineClear),
+    0
+  );
+
+  return {
+    playableCount,
+    totalPlacements,
+    clearCapableCount,
+    maxImmediateLineClear,
+    dead: playableCount === 0,
+  };
+}
+
+function chooseRepairShape(board: Board, candidates: Shape[]): Shape | null {
+  const playable = candidates
+    .map((shape) => ({ shape, stats: analyzeShapeOpportunity(board, shape) }))
+    .filter(({ stats }) => stats.placements > 0)
+    .sort((a, b) => {
+      if (a.stats.maxImmediateLineClear !== b.stats.maxImmediateLineClear) {
+        return a.stats.maxImmediateLineClear - b.stats.maxImmediateLineClear;
+      }
+      if (a.stats.placements !== b.stats.placements) {
+        return a.stats.placements - b.stats.placements;
+      }
+      return b.shape.cells.length - a.shape.cells.length;
+    });
+
+  return playable[0]?.shape ?? null;
+}
+
+/** Deal raw random trays unless the first deal is immediately dead. */
+export function randomTrayForBoard(
+  board: Board,
+  makeTray: () => Shape[],
+  makeCandidateShapes: () => Shape[]
+): Shape[] {
+  const tray = makeTray();
+  if (!analyzeTrayOpportunity(board, tray).dead) return tray;
+
+  const repair = chooseRepairShape(board, makeCandidateShapes());
+  return repair ? [repair, tray[1], tray[2]] : tray;
 }
 
 /** Game over when none of the remaining tray shapes fit anywhere. */

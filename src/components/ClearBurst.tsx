@@ -6,7 +6,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { radii } from '../theme/theme';
+import { BOARD_SIZE, palette, radii } from '../theme/theme';
 
 export interface Burst {
   id: number;
@@ -14,22 +14,62 @@ export interface Burst {
   gridX: number;
   gridY: number;
   cell: number;
+  variant?: 'clear' | 'cross';
 }
 
-function BurstTile({ x, y, size }: { x: number; y: number; size: number }) {
+function BurstTile({
+  x,
+  y,
+  size,
+  variant,
+}: {
+  x: number;
+  y: number;
+  size: number;
+  variant?: Burst['variant'];
+}) {
   const p = useSharedValue(0);
   useEffect(() => {
-    p.value = withTiming(1, { duration: 420 });
+    p.value = withTiming(1, { duration: variant === 'cross' ? 520 : 420 });
   }, []);
   const style = useAnimatedStyle(() => ({
     opacity: 1 - p.value,
-    transform: [{ scale: 1 + p.value * 0.6 }],
+    transform: [{ scale: 1 + p.value * (variant === 'cross' ? 0.85 : 0.6) }],
   }));
   return (
     <Animated.View
       style={[
         styles.tile,
+        variant === 'cross' && styles.crossTile,
         { left: x, top: y, width: size, height: size, borderRadius: radii.cell },
+        style,
+      ]}
+    />
+  );
+}
+
+function CrossShock({ burst }: { burst: Burst }) {
+  const p = useSharedValue(0);
+  useEffect(() => {
+    p.value = withTiming(1, { duration: 520 });
+  }, []);
+  const style = useAnimatedStyle(() => ({
+    opacity: 0.7 * (1 - p.value),
+    transform: [{ scale: 0.96 + p.value * 0.12 }],
+  }));
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        styles.crossShock,
+        {
+          left: burst.gridX,
+          top: burst.gridY,
+          width: burst.cell * BOARD_SIZE,
+          height: burst.cell * BOARD_SIZE,
+          borderRadius: radii.card,
+        },
         style,
       ]}
     />
@@ -53,12 +93,14 @@ export default function ClearBurst({
 
   return (
     <>
+      {burst.variant === 'cross' && <CrossShock burst={burst} />}
       {burst.cells.map(([r, c], i) => (
         <BurstTile
           key={i}
           x={burst.gridX + c * burst.cell + 2}
           y={burst.gridY + r * burst.cell + 2}
           size={burst.cell - 4}
+          variant={burst.variant}
         />
       ))}
     </>
@@ -72,5 +114,15 @@ const styles = StyleSheet.create({
     shadowColor: '#fff',
     shadowOpacity: 0.9,
     shadowRadius: 8,
+  },
+  crossTile: {
+    backgroundColor: 'rgba(72,229,160,0.88)',
+    shadowColor: palette.success,
+  },
+  crossShock: {
+    position: 'absolute',
+    borderWidth: 2,
+    borderColor: palette.success,
+    backgroundColor: 'rgba(72,229,160,0.08)',
   },
 });

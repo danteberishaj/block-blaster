@@ -14,6 +14,7 @@ import Animated, {
 import { LinearGradient } from 'expo-linear-gradient';
 import { palette, radii, spacing } from '../theme/theme';
 import Block from './Block';
+import GameIcon from './GameIcon';
 
 const CLAMP = Extrapolation.CLAMP;
 const C = 22; // demo cell size
@@ -25,26 +26,22 @@ interface Props {
 
 const STEPS = [
   {
-    emoji: '👆',
     title: 'Drag the blocks',
     body: 'Drag a shape from the tray onto the board. You get three at a time.',
   },
   {
-    emoji: '✨',
     title: 'Fill lines to clear',
     body: 'Complete a full row or column to blast it away and rack up points.',
   },
   {
-    emoji: '🧠',
     title: 'Plan ahead',
     body: "If none of your three blocks fit anywhere, it's game over. Leave room!",
   },
   {
-    emoji: '🧰',
     title: 'Use your helpers',
     body: 'Shuffle for fresh pieces, Break to smash a single block, or get a Hint — three of each per game.',
   },
-];
+] as const;
 
 /** A small empty grid slot. */
 function Slot() {
@@ -64,11 +61,12 @@ function Slot() {
 }
 
 /** A finger that holds a piece from just below it. */
-function Finger({ width }: { width: number }) {
+function TouchMark({ width }: { width: number }) {
   return (
-    <Text style={{ position: 'absolute', top: C + 2, left: width / 2 - 10, fontSize: 20 }}>
-      👆
-    </Text>
+    <View style={[styles.touchMark, { left: width / 2 - 7, top: C + 5 }]}>
+      <View style={styles.touchTrail} />
+      <View style={styles.touchDot} />
+    </View>
   );
 }
 
@@ -139,7 +137,7 @@ function DragDemo() {
           <Block colorIndex={1} size={C} />
           <Block colorIndex={1} size={C} />
         </View>
-        <Finger width={2 * C} />
+        <TouchMark width={2 * C} />
       </Animated.View>
     </View>
   );
@@ -218,8 +216,37 @@ function ClearDemo() {
       {/* dropping block + finger */}
       <Animated.View style={[{ position: 'absolute', left: gapX, top: 0 }, drop]}>
         <Block colorIndex={1} size={C} />
-        <Finger width={C} />
+        <TouchMark width={C} />
       </Animated.View>
+    </View>
+  );
+}
+
+function BlockedDemo() {
+  return (
+    <View style={styles.iconDemo}>
+      <GameIcon
+        name="blocked"
+        size={64}
+        color={palette.danger}
+        strokeWidth={2.5}
+      />
+    </View>
+  );
+}
+
+function HelpersDemo() {
+  return (
+    <View style={styles.helpersDemo}>
+      <View style={styles.helperChip}>
+        <GameIcon name="shuffle" size={22} color={palette.accent} />
+      </View>
+      <View style={styles.helperChip}>
+        <GameIcon name="break" size={22} color={palette.danger} />
+      </View>
+      <View style={styles.helperChip}>
+        <GameIcon name="hint" size={22} color={palette.gold} />
+      </View>
     </View>
   );
 }
@@ -229,11 +256,8 @@ function DemoAnimation({ step }: { step: number }) {
     <View style={styles.demoBox}>
       {step === 0 && <DragDemo />}
       {step === 1 && <ClearDemo />}
-      {step >= 2 && (
-        <Text style={{ fontSize: step === 2 ? 44 : 32, letterSpacing: 6 }}>
-          {step === 2 ? '🚫' : '🔀💣💡'}
-        </Text>
-      )}
+      {step === 2 && <BlockedDemo />}
+      {step === 3 && <HelpersDemo />}
     </View>
   );
 }
@@ -271,8 +295,6 @@ function Tutorial({ visible, onDone }: Props) {
           <Pressable style={styles.skip} onPress={skip} hitSlop={10}>
             <Text style={styles.skipText}>Skip</Text>
           </Pressable>
-
-          <Text style={styles.emoji}>{s.emoji}</Text>
 
           <Animated.View key={step} entering={FadeIn.duration(260)}>
             <DemoAnimation step={step} />
@@ -341,9 +363,47 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 13,
   },
-  emoji: {
-    fontSize: 40,
-    marginBottom: spacing.sm,
+  touchMark: {
+    position: 'absolute',
+    width: 14,
+    height: 36,
+    alignItems: 'center',
+  },
+  touchTrail: {
+    width: 2,
+    height: 24,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
+  touchDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: palette.gold,
+    borderWidth: 2,
+    borderColor: palette.text,
+    marginTop: -2,
+  },
+  iconDemo: {
+    width: 110,
+    height: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  helpersDemo: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    alignItems: 'center',
+  },
+  helperChip: {
+    width: 44,
+    height: 44,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: palette.surfaceLight,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   demoBox: {
     height: 138,

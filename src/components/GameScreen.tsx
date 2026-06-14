@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Dimensions,
   Platform,
   Pressable,
   StatusBar,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import Animated, {
@@ -19,20 +19,23 @@ import { BOARD_SIZE, palette, radii, spacing } from '../theme/theme';
 import { Board, Shape } from '../game/types';
 import {
   canPlace,
+  canPlaceAnywhere,
   clearLines,
   cloneBoard,
-  connectedSameColor,
   createEmptyBoard,
   findHint,
   isGameOver,
   placeShape,
+  randomTrayForBoard,
   scoreMove,
 } from '../game/logic';
-import { randomTray } from '../game/shapes';
+import { randomTray, shapeCatalog } from '../game/shapes';
 import {
+  getBestChain,
   getHighScore,
   hasSeenTutorial,
   markTutorialSeen,
+  saveBestChain,
   saveHighScore,
 } from '../storage/storage';
 
@@ -46,29 +49,38 @@ import ClearBurst, { Burst } from './ClearBurst';
 import ComboPopup, { ComboData } from './ComboPopup';
 import HelperBar, { HelperCounts } from './HelperBar';
 import SoundToggle from './SoundToggle';
-import { playClear } from '../audio/audio';
+import GameIcon from './GameIcon';
+import { playClear, playCrossBlast } from '../audio/audio';
 
 const START_HELPERS: HelperCounts = { shuffle: 3, bomb: 3, hint: 3 };
 
-const { width } = Dimensions.get('window');
 const H_MARGIN = 14;
 const GRID_PAD = 6; // must match Grid's internal PAD
-const BOARD_CELL = Math.floor(
-  (width - H_MARGIN * 2 - GRID_PAD * 2) / BOARD_SIZE
-);
-const TRAY_CELL = Math.round(BOARD_CELL * 0.5);
+const MAX_BOARD_CELL = 48;
+const MIN_BOARD_CELL = 32;
+const MAX_CONTENT_WIDTH = MAX_BOARD_CELL * BOARD_SIZE + H_MARGIN * 2 + 48;
+const dealTrayForBoard = (board: Board) =>
+  randomTrayForBoard(board, randomTray, shapeCatalog);
 
 export default function GameScreen({ onHome }: { onHome: () => void }) {
+  const { width, height } = useWindowDimensions();
   const [board, setBoard] = useState<Board>(() => createEmptyBoard());
-  const [tray, setTray] = useState<(Shape | null)[]>(() => randomTray());
+  const [tray, setTray] = useState<(Shape | null)[]>(() =>
+    dealTrayForBoard(createEmptyBoard())
+  );
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
   const [isNewBest, setIsNewBest] = useState(false);
+  const [bestChain, setBestChain] = useState(0);
+  const [runBestChain, setRunBestChain] = useState(0);
+  const [isNewBestChain, setIsNewBestChain] = useState(false);
+  const [biggestBlast, setBiggestBlast] = useState(0);
   const [gameOver, setGameOver] = useState(false);
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [preview, setPreview] = useState<PreviewState | null>(null);
   const [bursts, setBursts] = useState<Burst[]>([]);
   const [combos, setCombos] = useState<ComboData[]>([]);
+  const [comboStreak, setComboStreak] = useState(0);
   const [showTutorial, setShowTutorial] = useState(false);
 
   // Helpers
@@ -82,6 +94,9 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
   const trayRef = useRef(tray);
   const scoreRef = useRef(score);
   const highScoreRef = useRef(highScore);
+  const bestChainRef = useRef(0);
+  const runBestChainRef = useRef(0);
+  const biggestBlastRef = useRef(0);
   const gridLayoutRef = useRef<GridLayout | null>(null);
   const burstIdRef = useRef(0);
   const comboRef = useRef(0); // consecutive clearing-move streak
@@ -99,12 +114,26 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
   const gridX = useSharedValue(0);
   const gridY = useSharedValue(0);
   const lastKey = useSharedValue(-9999);
+  const topPad = (Platform.OS === 'android' ? StatusBar.currentHeight ?? 0 : 44) + 8;
+  const boardCellFromWidth = Math.floor(
+    (width - H_MARGIN * 2 - GRID_PAD * 2) / BOARD_SIZE
+  );
+  const boardCellFromHeight = Math.floor((height - topPad - 230) / 10.5);
+  const boardCell = Math.max(
+    MIN_BOARD_CELL,
+    Math.min(MAX_BOARD_CELL, boardCellFromWidth, boardCellFromHeight)
+  );
+  const trayCell = Math.round(boardCell * 0.5);
 
   // Load persisted state on mount.
   useEffect(() => {
     getHighScore().then((h) => {
       highScoreRef.current = h;
       setHighScore(h);
+    });
+    getBestChain().then((c) => {
+      bestChainRef.current = c;
+      setBestChain(c);
     });
     hasSeenTutorial().then((seen) => setShowTutorial(!seen));
   }, []);
@@ -155,7 +184,10 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
       const cells = shape.cells.map(
         ([dr, dc]) => [row + dr, col + dc] as [number, number]
       );
-      setPreview({ cells, valid, colorIndex: shape.colorIndex });
+      const clearCells = valid
+        ? clearLines(placeShape(boardRef.current, shape, row, col)).clearedCells
+        : [];
+      setPreview({ cells, valid, colorIndex: shape.colorIndex, clearCells });
     },
     []
   );
@@ -186,11 +218,18 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
 
       let nextTray = curTray.slice();
       nextTray[index] = null;
-      if (nextTray.every((s) => s === null)) nextTray = randomTray();
+      if (nextTray.every((s) => s === null)) {
+        nextTray = dealTrayForBoard(nextBoard);
+      }
 
       // combo streak: grows on consecutive clearing moves, resets otherwise.
       const newCombo = lineCount > 0 ? comboRef.current + 1 : 0;
       comboRef.current = newCombo;
+      setComboStreak(newCombo);
+      if (newCombo > runBestChainRef.current) {
+        runBestChainRef.current = newCombo;
+        setRunBestChain(newCombo);
+      }
 
       const gained = scoreMove(placed, lineCount, newCombo);
       const nextScore = scoreRef.current + gained;
@@ -203,7 +242,19 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
       setScore(nextScore);
 
       if (cleared.clearedCells.length > 0) {
-        playClear();
+        const isCrossBlast = cleared.rows.length > 0 && cleared.cols.length > 0;
+        if (gained > biggestBlastRef.current) {
+          biggestBlastRef.current = gained;
+          setBiggestBlast(gained);
+        }
+        if (newCombo > bestChainRef.current) {
+          bestChainRef.current = newCombo;
+          setBestChain(newCombo);
+          setIsNewBestChain(true);
+          saveBestChain(newCombo);
+        }
+        if (isCrossBlast) playCrossBlast();
+        else playClear();
         Haptics.notificationAsync(
           Haptics.NotificationFeedbackType.Success
         ).catch(() => {});
@@ -218,30 +269,43 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
               gridX: gl.x,
               gridY: gl.y,
               cell: gl.cell,
+              variant: isCrossBlast ? 'cross' : 'clear',
             },
           ]);
         }
 
-        // Show a combo / multi-clear popup for the juicy moments.
-        if (lineCount >= 2 || newCombo >= 2) {
-          const labels = ['', '', 'DOUBLE!', 'TRIPLE!', 'QUAD!', 'PENTA!'];
-          const text =
-            newCombo >= 2
-              ? `COMBO ×${newCombo}`
-              : labels[Math.min(lineCount, 5)] || 'CLEAR!';
-          const intensity = Math.max(newCombo, lineCount);
-          const centerY = gl ? gl.y + 4 * gl.cell : 320;
-          const cid = ++comboIdRef.current;
-          setCombos((c) => [
-            ...c,
-            { id: cid, text, sub: `+${gained}`, intensity, centerY },
-          ]);
-          // a little extra punch for big combos
-          if (intensity >= 3) {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(
-              () => {}
-            );
-          }
+        const labels = ['CLEAR!', 'CLEAR!', 'DOUBLE!', 'TRIPLE!', 'QUAD!', 'PENTA!'];
+        const text =
+          isCrossBlast
+            ? 'CROSS BLAST'
+            : newCombo >= 2
+            ? `COMBO ×${newCombo}`
+            : labels[Math.min(lineCount, 5)] || 'CLEAR!';
+        const sub =
+          isCrossBlast && newCombo >= 2
+            ? `COMBO ×${newCombo}  +${gained}`
+            : `+${gained}`;
+        const intensity = isCrossBlast
+          ? Math.max(4, newCombo, lineCount)
+          : Math.max(newCombo, lineCount);
+        const centerY = gl ? gl.y + 4 * gl.cell : 320;
+        const cid = ++comboIdRef.current;
+        setCombos((c) => [
+          ...c,
+          {
+            id: cid,
+            text,
+            sub,
+            intensity,
+            centerY,
+            variant: isCrossBlast ? 'cross' : newCombo >= 2 ? 'combo' : 'clear',
+          },
+        ]);
+        // a little extra punch for big combos
+        if (intensity >= 3) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(
+            () => {}
+          );
         }
       }
 
@@ -270,11 +334,17 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
 
   const restart = useCallback(() => {
     const b = createEmptyBoard();
-    const t = randomTray();
+    const t = dealTrayForBoard(b);
     boardRef.current = b;
     trayRef.current = t;
     scoreRef.current = 0;
     comboRef.current = 0;
+    runBestChainRef.current = 0;
+    biggestBlastRef.current = 0;
+    setComboStreak(0);
+    setRunBestChain(0);
+    setBiggestBlast(0);
+    setIsNewBestChain(false);
     setBoard(b);
     setTray(t);
     setScore(0);
@@ -320,7 +390,7 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
   const onShuffle = useCallback(() => {
     disarmBomb();
     if (!spend('shuffle')) return;
-    const t = randomTray();
+    const t = dealTrayForBoard(boardRef.current);
     trayRef.current = t;
     setTray(t);
     setPreview(null);
@@ -343,9 +413,7 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
     (r: number, c: number) => {
       if (!bombArmedRef.current) return;
       if (boardRef.current[r][c] === null) return; // ignore empty taps
-      // Break the whole contiguous shape (connected same-color region).
-      const cells = connectedSameColor(boardRef.current, r, c);
-      if (cells.length === 0) return;
+      const cells: [number, number][] = [[r, c]];
       if (!spend('bomb')) {
         disarmBomb();
         return;
@@ -396,10 +464,11 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
   // Revive from game over by spending a shuffle for fresh pieces.
   const onRevive = useCallback(() => {
     if (!spend('shuffle')) return;
-    const t = randomTray();
+    const t = dealTrayForBoard(boardRef.current);
     trayRef.current = t;
     setTray(t);
     comboRef.current = 0;
+    setComboStreak(0);
     setGameOver(false);
     setPreview(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
@@ -407,9 +476,9 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
 
   // Floating dragged piece, driven entirely on the UI thread.
   const overlayStyle = useAnimatedStyle(() => {
-    const left = dragX.value - (dragW.value * BOARD_CELL) / 2;
+    const left = dragX.value - (dragW.value * boardCell) / 2;
     const top =
-      dragY.value - dragH.value * BOARD_CELL - BOARD_CELL * LIFT_FACTOR;
+      dragY.value - dragH.value * boardCell - boardCell * LIFT_FACTOR;
     return {
       opacity: dragActive.value,
       transform: [
@@ -422,13 +491,15 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
 
   const draggingShape =
     draggingIndex !== null ? tray[draggingIndex] : null;
+  const shapeFits = tray.map((shape) =>
+    shape ? canPlaceAnywhere(board, shape) : true
+  );
   const enabled = !gameOver && !showTutorial && !bombArmed;
-  const topPad = (Platform.OS === 'android' ? StatusBar.currentHeight ?? 0 : 44) + 8;
 
   return (
     <View style={styles.root}>
       <LinearGradient
-        colors={[palette.bg, palette.bgDeep]}
+        colors={palette.bgGradient}
         style={StyleSheet.absoluteFill}
       />
 
@@ -440,10 +511,11 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
             hitSlop={10}
             style={({ pressed }) => [
               styles.iconBtn,
+              styles.leftControl,
               { opacity: pressed ? 0.7 : 1 },
             ]}
           >
-            <Text style={styles.iconText}>‹</Text>
+            <GameIcon name="back" size={22} color={palette.textDim} />
           </Pressable>
           <Text style={styles.brand}>
             BLOCK <Text style={{ color: palette.accent }}>BLAST</Text>
@@ -458,17 +530,22 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
                 { opacity: pressed ? 0.7 : 1 },
               ]}
             >
-              <Text style={styles.iconText}>↻</Text>
+              <GameIcon name="restart" size={21} color={palette.textDim} />
             </Pressable>
           </View>
         </View>
 
-        <Header score={score} highScore={highScore} isNewBest={isNewBest} />
+        <Header
+          score={score}
+          highScore={highScore}
+          isNewBest={isNewBest}
+          comboStreak={comboStreak}
+        />
 
         <View style={styles.boardWrap}>
           <Grid
             board={board}
-            cellSize={BOARD_CELL}
+            cellSize={boardCell}
             preview={preview}
             hint={hintCells}
             bombArmed={bombArmed}
@@ -487,17 +564,23 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
         />
 
         {/* tray */}
-        <View style={styles.tray}>
+        <LinearGradient
+          colors={palette.trayGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.tray, { height: trayCell * 5 + spacing.lg }]}
+        >
           {tray.map((shape, i) => (
             <View key={i} style={styles.traySlot}>
               {shape && (
                 <DraggableShape
                   shape={shape}
                   index={i}
-                  trayCell={TRAY_CELL}
-                  boardCell={BOARD_CELL}
+                  trayCell={trayCell}
+                  boardCell={boardCell}
                   isDragging={draggingIndex === i}
-                  enabled={enabled}
+                  enabled={enabled && shapeFits[i]}
+                  playable={shapeFits[i]}
                   highlight={hintIndex === i}
                   dragX={dragX}
                   dragY={dragY}
@@ -514,7 +597,7 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
               )}
             </View>
           ))}
-        </View>
+        </LinearGradient>
       </View>
 
       {/* clear-line bursts */}
@@ -535,7 +618,7 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
         {draggingShape && (
           <Animated.View style={[styles.dragLayer, overlayStyle]}>
-            <ShapeView shape={draggingShape} cell={BOARD_CELL} />
+            <ShapeView shape={draggingShape} cell={boardCell} />
           </Animated.View>
         )}
       </View>
@@ -545,6 +628,10 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
         score={score}
         highScore={highScore}
         isNewBest={isNewBest}
+        runBestChain={runBestChain}
+        bestChain={bestChain}
+        isNewBestChain={isNewBestChain}
+        biggestBlast={biggestBlast}
         canRevive={helpers.shuffle > 0}
         onRevive={onRevive}
         onRestart={restart}
@@ -560,23 +647,30 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: palette.bg },
   content: {
     flex: 1,
+    width: '100%',
+    maxWidth: MAX_CONTENT_WIDTH,
+    alignSelf: 'center',
     paddingHorizontal: H_MARGIN,
     alignItems: 'center',
   },
   brandBar: {
     width: '100%',
-    flexDirection: 'row',
+    height: 42,
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     marginBottom: spacing.sm,
+    position: 'relative',
   },
   brand: {
-    flex: 1,
     textAlign: 'center',
     color: palette.text,
     fontSize: 18,
     fontWeight: '900',
     letterSpacing: 1,
+  },
+  leftControl: {
+    position: 'absolute',
+    left: 0,
   },
   iconBtn: {
     width: 38,
@@ -588,13 +682,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.surfaceLight,
   },
-  iconText: {
-    color: palette.textDim,
-    fontSize: 22,
-    fontWeight: '900',
-    marginTop: -2,
-  },
   rightCluster: {
+    position: 'absolute',
+    right: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -606,13 +696,13 @@ const styles = StyleSheet.create({
   tray: {
     flexDirection: 'row',
     width: '100%',
-    height: TRAY_CELL * 5 + spacing.lg,
     alignItems: 'center',
     justifyContent: 'space-around',
-    backgroundColor: palette.surface,
     borderRadius: radii.card,
     marginBottom: spacing.md,
     paddingVertical: spacing.sm,
+    borderWidth: 1,
+    borderColor: palette.surfaceLight,
   },
   traySlot: {
     flex: 1,

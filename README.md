@@ -1,4 +1,4 @@
-# Block Blast 🧩
+# Block Blast
 
 A polished, offline block-puzzle game for Android, built with Expo + React Native.
 
@@ -8,16 +8,18 @@ score is saved on-device.
 
 ## Features
 
-- 🏠 Animated **home screen** with a big Play button, best score, and "How to Play"
-- 🎮 Forgiving drag-and-drop: the piece **snaps to the nearest valid spot** (even hanging off the edge), with a colored ghost preview showing exactly where it lands
-- 🧰 **Helpers** (3 each per game): **Shuffle** new pieces · **Break** a single block (tap-to-smash) · **Hint** (highlights a move). Run out of room? "Shuffle & Continue" revives you on game over
-- 🔥 **Combos** — consecutive clears build a streak multiplier (×2, ×3…); multi-line clears pop "DOUBLE!/TRIPLE!" with escalating color + haptics
-- 🎵 **Audio** — a subtle looping ambient pad + a chime on line clears, with a mute toggle. All sound is **self-synthesized** (`scripts/generate-audio.mjs`), so it's genuinely royalty-free — no licences, no attribution
-- ✨ Animated splash screen — colored tiles assemble into the logo
-- 📚 First-launch tutorial (3 quick coachmark steps)
-- 💥 Line-clear burst effects + haptic feedback on place / clear
-- 👑 Local high-score persistence (AsyncStorage) — **no backend required**
-- 🎨 Dark, vibrant gradient UI + a custom generated app icon
+- Animated **home screen** with a big Play button, best score, and "How to Play"
+- Forgiving drag-and-drop: the piece **snaps to the nearest valid spot** (even hanging off the edge), with a colored ghost preview showing exactly where it lands
+- **Helpers** (3 each per game): **Shuffle** new pieces · **Break** a single block (tap-to-smash) · **Hint** (highlights a move). Run out of room? "Shuffle & Continue" revives you on game over
+- **Combos** — consecutive clears build a streak multiplier (×2, ×3…); multi-line clears pop "DOUBLE!/TRIPLE!" with escalating color + haptics
+- **Cross Blast** — simultaneous row and column clears get a distinct popup, burst, haptic, and synthesized sound
+- **Retention stats** — local best score, run chain, all-time best chain, and biggest blast
+- **Audio** — a subtle looping ambient pad + a chime on line clears, with a mute toggle. All sound is **self-synthesized** (`scripts/generate-audio.mjs`), so it's genuinely royalty-free — no licences, no attribution
+- Animated splash screen — colored tiles assemble into the logo
+- First-launch tutorial (4 quick coachmark steps)
+- Line-clear burst effects + haptic feedback on place / clear
+- Local high-score persistence (AsyncStorage) — **no backend required**
+- Dark, vibrant gradient UI, custom app icon, and maintained vector controls instead of emoji UI
 
 ## Run it
 
@@ -38,8 +40,8 @@ npm run android
 App.tsx                       Root: gesture provider + splash handoff
 src/
   game/
-    logic.ts                  Pure game rules (place / clear / game-over / score) — unit-testable
-    shapes.ts                 Shape templates + random tray generation
+    logic.ts                  Pure game rules (place / clear / game-over / score / tray fairness)
+    shapes.ts                 Shape templates + random shape construction
     types.ts                  Board / Shape types
   components/
     HomeScreen.tsx            Start screen: Play button, best score, How to Play
@@ -54,9 +56,11 @@ src/
     AnimatedSplash.tsx        Branded intro animation
     ClearBurst.tsx            Line-clear flash effect
     ComboPopup.tsx            "COMBO ×N" / multi-clear popup
+    GameIcon.tsx              Maintained control/icon wrapper
   storage/storage.ts          AsyncStorage (high score + tutorial flag)
   theme/theme.ts              Colors, spacing, radii, board size
 scripts/generate-icons.mjs    Generates app icon / splash PNGs from one SVG (run: node scripts/generate-icons.mjs)
+scripts/tray-balance-check.mjs Deterministic tray fairness audit (run: npm run balance:tray)
 ```
 
 ## Regenerate the app icon
@@ -71,7 +75,8 @@ node scripts/generate-icons.mjs
 
 ## Regenerate the audio
 
-`assets/audio/music.wav` (ambient loop) and `clear.wav` (line-clear chime) are
+`assets/audio/music.wav` (ambient loop), `clear.wav` (line-clear chime), and
+`cross.wav` (Cross Blast hit) are
 synthesized from scratch in `scripts/generate-audio.mjs` — pure sine math, no samples,
 so it's licence-free. Tweak the chords/tempo and re-run:
 

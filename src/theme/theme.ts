@@ -6,14 +6,17 @@ export const palette = {
   // Backgrounds
   bg: '#0E1230',
   bgDeep: '#080A1F',
+  bgGlow: '#161D4A',
   surface: '#1B2150',
   surfaceLight: '#262E63',
+  surfaceLift: '#303974',
   cellEmpty: '#1A2050',
   cellEmptyBorder: '#2A3170',
 
   // Text
   text: '#FFFFFF',
   textDim: '#9AA3D4',
+  textMuted: '#6F79AE',
 
   // Accents
   accent: '#5B7CFF',
@@ -24,6 +27,11 @@ export const palette = {
   // Preview highlight
   previewValid: 'rgba(91, 124, 255, 0.45)',
   previewInvalid: 'rgba(255, 92, 122, 0.35)',
+
+  bgGradient: ['#11183C', '#090B23'] as const,
+  boardGradient: ['#242D68', '#151A45'] as const,
+  trayGradient: ['#202862', '#171D47'] as const,
+  primaryGradient: ['#7E96FF', '#3F5BE0'] as const,
 };
 
 // Vibrant gradient pairs used to color blocks. Each shape picks one.

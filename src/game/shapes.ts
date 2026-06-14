@@ -73,6 +73,13 @@ export function randomShape(): Shape {
   return makeShape(t, colorIndex);
 }
 
+/** One concrete shape for every template, used by pure tray repair logic. */
+export function shapeCatalog(): Shape[] {
+  return TEMPLATES.map((_, t) =>
+    makeShape(t, Math.floor(Math.random() * blockColors.length))
+  );
+}
+
 /** A fresh tray of 3 random shapes. */
 export function randomTray(): Shape[] {
   return [randomShape(), randomShape(), randomShape()];

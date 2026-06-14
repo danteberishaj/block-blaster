@@ -8,12 +8,17 @@ import Animated, {
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { palette, radii, spacing } from '../theme/theme';
+import GameIcon from './GameIcon';
 
 interface Props {
   visible: boolean;
   score: number;
   highScore: number;
   isNewBest: boolean;
+  runBestChain: number;
+  bestChain: number;
+  isNewBestChain: boolean;
+  biggestBlast: number;
   canRevive: boolean;
   onRevive: () => void;
   onRestart: () => void;
@@ -25,6 +30,10 @@ function GameOverModal({
   score,
   highScore,
   isNewBest,
+  runBestChain,
+  bestChain,
+  isNewBestChain,
+  biggestBlast,
   canRevive,
   onRevive,
   onRestart,
@@ -56,7 +65,12 @@ function GameOverModal({
 
           {isNewBest && (
             <View style={styles.bestBadge}>
-              <Text style={styles.bestBadgeText}>🎉 NEW HIGH SCORE!</Text>
+              <GameIcon
+                name="best"
+                size={16}
+                color={palette.gold}
+              />
+              <Text style={styles.bestBadgeText}>NEW BEST</Text>
             </View>
           )}
 
@@ -73,6 +87,34 @@ function GameOverModal({
             </View>
           </View>
 
+          <View style={styles.statRow}>
+            <View style={styles.statBox}>
+              <Text style={styles.scoreLabel}>RUN CHAIN</Text>
+              <Text
+                style={[
+                  styles.statValue,
+                  isNewBestChain && { color: palette.gold },
+                ]}
+              >
+                x{runBestChain}
+              </Text>
+              <Text
+                style={[
+                  styles.statMeta,
+                  isNewBestChain && { color: palette.gold },
+                ]}
+              >
+                BEST x{bestChain}
+              </Text>
+            </View>
+            {biggestBlast > 0 && (
+              <View style={styles.statBox}>
+                <Text style={styles.scoreLabel}>BIGGEST BLAST</Text>
+                <Text style={styles.statValue}>+{biggestBlast}</Text>
+              </View>
+            )}
+          </View>
+
           {canRevive && (
             <Pressable
               onPress={onRevive}
@@ -84,7 +126,8 @@ function GameOverModal({
                 end={{ x: 1, y: 1 }}
                 style={[styles.button, { marginBottom: spacing.sm }]}
               >
-                <Text style={styles.buttonText}>🔀  Shuffle & Continue</Text>
+                <GameIcon name="shuffle" size={20} color={palette.text} />
+                <Text style={styles.buttonText}>Shuffle & Continue</Text>
               </LinearGradient>
             </Pressable>
           )}
@@ -140,6 +183,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   bestBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: 'rgba(255,210,90,0.16)',
     borderRadius: radii.pill,
     paddingHorizontal: spacing.md,
@@ -155,7 +201,7 @@ const styles = StyleSheet.create({
   scoreRow: {
     flexDirection: 'row',
     gap: spacing.md,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   scoreBox: {
     backgroundColor: palette.bg,
@@ -177,12 +223,44 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     marginTop: 2,
   },
+  statRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    width: '100%',
+    marginBottom: spacing.lg,
+  },
+  statBox: {
+    flex: 1,
+    backgroundColor: 'rgba(8,10,31,0.42)',
+    borderRadius: radii.card,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: palette.surfaceLight,
+  },
+  statValue: {
+    color: palette.text,
+    fontSize: 22,
+    fontWeight: '900',
+    marginTop: 2,
+  },
+  statMeta: {
+    color: palette.textDim,
+    fontSize: 11,
+    fontWeight: '800',
+    marginTop: 2,
+    letterSpacing: 0.4,
+  },
   button: {
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
     borderRadius: radii.pill,
     width: '100%',
     alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
   },
   buttonText: {
     color: palette.text,

@@ -26,6 +26,7 @@ interface Props {
   boardCell: number;
   isDragging: boolean;
   enabled: boolean;
+  playable: boolean;
   highlight: boolean;
   // shared drag state (owned by GameScreen)
   dragX: SharedValue<number>;
@@ -50,6 +51,7 @@ function DraggableShape(props: Props) {
     boardCell,
     isDragging,
     enabled,
+    playable,
     highlight,
     dragX,
     dragY,
@@ -146,7 +148,7 @@ function DraggableShape(props: Props) {
       <Animated.View
         style={[
           {
-            opacity: isDragging ? 0 : 1,
+            opacity: isDragging ? 0 : playable ? 1 : 0.28,
             alignItems: 'center',
             justifyContent: 'center',
           },

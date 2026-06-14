@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Dimensions,
   Platform,
   Pressable,
   StatusBar,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import Animated, {
@@ -28,8 +28,9 @@ import { getHighScore } from '../storage/storage';
 import LogoMark from './LogoMark';
 import Tutorial from './Tutorial';
 import SoundToggle from './SoundToggle';
+import GameIcon from './GameIcon';
 
-const { width, height } = Dimensions.get('window');
+const MAX_CONTENT_WIDTH = 460;
 
 interface Props {
   onPlay: () => void;
@@ -77,6 +78,7 @@ function FloatingBlock({
 }
 
 export default function HomeScreen({ onPlay }: Props) {
+  const { width, height } = useWindowDimensions();
   const [highScore, setHighScore] = useState(0);
   const [showTutorial, setShowTutorial] = useState(false);
 
@@ -124,7 +126,7 @@ export default function HomeScreen({ onPlay }: Props) {
   return (
     <View style={styles.root}>
       <LinearGradient
-        colors={[palette.bg, palette.bgDeep]}
+        colors={palette.bgGradient}
         style={StyleSheet.absoluteFill}
       />
 
@@ -153,7 +155,6 @@ export default function HomeScreen({ onPlay }: Props) {
 
           {highScore > 0 && (
             <Animated.View entering={FadeIn.delay(420)} style={styles.bestPill}>
-              <Text style={styles.crown}>👑</Text>
               <Text style={styles.bestText}>BEST {highScore}</Text>
             </Animated.View>
           )}
@@ -166,12 +167,13 @@ export default function HomeScreen({ onPlay }: Props) {
           <Animated.View style={[{ width: '100%' }, playStyle]}>
             <Pressable onPress={play} style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1 }]}>
               <LinearGradient
-                colors={['#6E8BFF', '#3F5BE0']}
+                colors={palette.primaryGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.playButton}
               >
-                <Text style={styles.playText}>▶  PLAY</Text>
+                <GameIcon name="play" size={24} color={palette.text} />
+                <Text style={styles.playText}>PLAY</Text>
               </LinearGradient>
             </Pressable>
           </Animated.View>
@@ -199,6 +201,9 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    width: '100%',
+    maxWidth: MAX_CONTENT_WIDTH,
+    alignSelf: 'center',
     paddingHorizontal: spacing.xl,
     justifyContent: 'space-between',
     paddingBottom: spacing.xl * 1.6,
@@ -237,7 +242,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.surfaceLight,
   },
-  crown: { fontSize: 14 },
   bestText: {
     color: palette.gold,
     fontWeight: '900',
@@ -254,6 +258,9 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     borderRadius: radii.pill,
     alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
     shadowColor: palette.accent,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.5,

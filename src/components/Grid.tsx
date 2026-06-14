@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { LinearGradient } from 'expo-linear-gradient';
 import { BOARD_SIZE, palette, radii } from '../theme/theme';
 import { Board } from '../game/types';
 import Block from './Block';
@@ -15,6 +16,7 @@ export interface PreviewState {
   cells: [number, number][];
   valid: boolean;
   colorIndex: number;
+  clearCells: [number, number][];
 }
 
 interface Props {
@@ -46,6 +48,9 @@ function Grid({
     (preview?.cells ?? []).map(([r, c]) => `${r},${c}`)
   );
   const hintKey = new Set((hint ?? []).map(([r, c]) => `${r},${c}`));
+  const clearKey = new Set(
+    (preview?.clearCells ?? []).map(([r, c]) => `${r},${c}`)
+  );
 
   const measure = () => {
     ref.current?.measureInWindow((x, y, _w, _h) => {
@@ -77,6 +82,7 @@ function Grid({
           {Array.from({ length: BOARD_SIZE }).map((__, c) => {
             const value = board[r][c];
             const isPreview = previewKey.has(`${r},${c}`);
+            const isClearPreview = clearKey.has(`${r},${c}`);
             const isHint = hintKey.has(`${r},${c}`);
             return (
               <View key={c} style={{ width: cellSize, height: cellSize }}>
@@ -103,6 +109,9 @@ function Grid({
                 {value !== null && (
                   <View style={StyleSheet.absoluteFill}>
                     <Block colorIndex={value} size={cellSize} />
+                    {isClearPreview && (
+                      <View style={[StyleSheet.absoluteFill, styles.clearRing]} />
+                    )}
                   </View>
                 )}
                 {/* valid placement ghost (colored, semi-transparent) */}
@@ -134,6 +143,11 @@ function Grid({
         },
       ]}
     >
+      <LinearGradient
+        colors={palette.boardGradient}
+        style={StyleSheet.absoluteFill}
+      />
+      <View pointerEvents="none" style={styles.innerGlow} />
       {bombArmed ? (
         <GestureDetector gesture={tap}>{inner}</GestureDetector>
       ) : (
@@ -151,6 +165,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 16,
     elevation: 8,
+    overflow: 'hidden',
+  },
+  innerGlow: {
+    position: 'absolute',
+    left: 10,
+    right: 10,
+    top: 8,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.18)',
   },
   row: { flexDirection: 'row' },
   slot: {
@@ -162,6 +185,13 @@ const styles = StyleSheet.create({
   },
   ghost: {
     opacity: 0.5,
+  },
+  clearRing: {
+    margin: 3,
+    borderRadius: radii.cell,
+    borderWidth: 1.5,
+    borderColor: palette.success,
+    opacity: 0.74,
   },
 });
 
