@@ -9,6 +9,7 @@ import GameScreen from './src/components/GameScreen';
 import HomeScreen from './src/components/HomeScreen';
 import AnimatedSplash from './src/components/AnimatedSplash';
 import { initAudio } from './src/audio/audio';
+import { initializeUnityAds } from './src/ads/unityAds';
 import { palette } from './src/theme/theme';
 
 // Keep the native splash up until our JS is ready, then hand off to the
@@ -26,6 +27,7 @@ export default function App() {
     SplashScreen.hideAsync().catch(() => {});
     // Start the background music + load the line-clear sound.
     initAudio();
+    initializeUnityAds();
   }, []);
 
   return (
