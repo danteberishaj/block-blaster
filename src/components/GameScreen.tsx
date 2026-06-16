@@ -47,6 +47,7 @@ import ComboPopup, { ComboData } from './ComboPopup';
 import HelperBar, { HelperCounts } from './HelperBar';
 import SoundToggle from './SoundToggle';
 import { playClear } from '../audio/audio';
+import { showGameOverInterstitial, showRewardedReviveAd } from '../ads/unityAds';
 
 const START_HELPERS: HelperCounts = { shuffle: 3, bomb: 3, hint: 3 };
 
@@ -70,6 +71,7 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
   const [bursts, setBursts] = useState<Burst[]>([]);
   const [combos, setCombos] = useState<ComboData[]>([]);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [reviveLoading, setReviveLoading] = useState(false);
 
   // Helpers
   const [helpers, setHelpers] = useState<HelperCounts>(START_HELPERS);
@@ -86,6 +88,7 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
   const burstIdRef = useRef(0);
   const comboRef = useRef(0); // consecutive clearing-move streak
   const comboIdRef = useRef(0);
+  const gameOverCountRef = useRef(0);
   const helpersRef = useRef(helpers);
   const bombArmedRef = useRef(false);
   const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -291,6 +294,14 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
     clearHint();
   }, [clearHint]);
 
+  const restartWithInterstitial = useCallback(async () => {
+    gameOverCountRef.current += 1;
+    if (gameOverCountRef.current % 3 === 0) {
+      await showGameOverInterstitial();
+    }
+    restart();
+  }, [restart]);
+
   const finishTutorial = useCallback(() => {
     setShowTutorial(false);
     markTutorialSeen();
@@ -394,8 +405,15 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
   }, [spend, disarmBomb]);
 
   // Revive from game over by spending a shuffle for fresh pieces.
-  const onRevive = useCallback(() => {
-    if (!spend('shuffle')) return;
+  const onRevive = useCallback(async () => {
+    if (reviveLoading || helpersRef.current.shuffle <= 0) return;
+
+    setReviveLoading(true);
+    const completed = await showRewardedReviveAd();
+    setReviveLoading(false);
+
+    if (!completed || !spend('shuffle')) return;
+
     const t = randomTray();
     trayRef.current = t;
     setTray(t);
@@ -403,7 +421,7 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
     setGameOver(false);
     setPreview(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-  }, [spend]);
+  }, [reviveLoading, spend]);
 
   // Floating dragged piece, driven entirely on the UI thread.
   const overlayStyle = useAnimatedStyle(() => {
@@ -545,9 +563,9 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
         score={score}
         highScore={highScore}
         isNewBest={isNewBest}
-        canRevive={helpers.shuffle > 0}
+        canRevive={helpers.shuffle > 0 && !reviveLoading}
         onRevive={onRevive}
-        onRestart={restart}
+        onRestart={restartWithInterstitial}
         onHome={onHome}
       />
 

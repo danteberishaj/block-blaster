@@ -38,4 +38,11 @@ yarn-error.*
 
 # generated native folders
 /ios
-/android
+
+# Android native project is tracked after prebuild; keep generated outputs local.
+/android/.gradle/
+/android/.kotlin/
+/android/build/
+/android/app/.cxx/
+/android/app/build/
+/android/local.properties
