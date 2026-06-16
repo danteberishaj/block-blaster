@@ -1,6 +1,7 @@
 package com.blockblast.game
 
 import android.app.Activity
+import android.util.Log
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
@@ -14,17 +15,24 @@ import com.unity3d.ads.UnityAdsShowOptions
 class UnityAdsModule(private val reactContext: ReactApplicationContext) :
   ReactContextBaseJavaModule(reactContext) {
 
+  companion object {
+    private const val TAG = "BlockBlastUnityAds"
+  }
+
   private var initialized = false
 
   override fun getName(): String = "UnityAdsBridge"
 
   @ReactMethod
   fun initialize(gameId: String, testMode: Boolean, promise: Promise) {
-    if (initialized || UnityAds.isInitialized()) {
+    if (initialized || UnityAds.isInitialized) {
+      Log.i(TAG, "initialize() skipped; already initialized. gameId=$gameId")
       initialized = true
       promise.resolve(true)
       return
     }
+
+    Log.i(TAG, "initialize() gameId=$gameId testMode=$testMode")
 
     UnityAds.initialize(
       reactContext.applicationContext,
@@ -32,6 +40,7 @@ class UnityAdsModule(private val reactContext: ReactApplicationContext) :
       testMode,
       object : IUnityAdsInitializationListener {
         override fun onInitializationComplete() {
+          Log.i(TAG, "onInitializationComplete()")
           initialized = true
           promise.resolve(true)
         }
@@ -40,6 +49,7 @@ class UnityAdsModule(private val reactContext: ReactApplicationContext) :
           error: UnityAds.UnityAdsInitializationError,
           message: String
         ) {
+          Log.e(TAG, "onInitializationFailed() error=$error message=$message")
           initialized = false
           promise.reject("UNITY_ADS_INIT_FAILED", "[$error] $message")
         }
@@ -49,7 +59,8 @@ class UnityAdsModule(private val reactContext: ReactApplicationContext) :
 
   @ReactMethod
   fun isInitialized(promise: Promise) {
-    promise.resolve(initialized || UnityAds.isInitialized())
+    Log.d(TAG, "isInitialized() -> ${initialized || UnityAds.isInitialized}")
+    promise.resolve(initialized || UnityAds.isInitialized)
   }
 
   @ReactMethod
@@ -63,22 +74,27 @@ class UnityAdsModule(private val reactContext: ReactApplicationContext) :
   }
 
   private fun showAd(placementId: String, rewarded: Boolean, promise: Promise) {
-    if (!initialized && !UnityAds.isInitialized()) {
+    if (!initialized && !UnityAds.isInitialized) {
+      Log.e(TAG, "showAd() rejected; SDK not initialized. placementId=$placementId rewarded=$rewarded")
       promise.reject("UNITY_ADS_NOT_INITIALIZED", "Unity Ads is not initialized.")
       return
     }
 
     val activity: Activity? = getCurrentActivity()
     if (activity == null) {
+      Log.e(TAG, "showAd() rejected; no current activity. placementId=$placementId rewarded=$rewarded")
       promise.reject("UNITY_ADS_NO_ACTIVITY", "No current Android activity.")
       return
     }
 
+    Log.i(TAG, "load() placementId=$placementId rewarded=$rewarded activity=${activity.localClassName}")
     UnityAds.load(
       placementId,
       object : IUnityAdsLoadListener {
         override fun onUnityAdsAdLoaded(loadedPlacementId: String) {
+          Log.i(TAG, "onUnityAdsAdLoaded() placementId=$loadedPlacementId rewarded=$rewarded")
           activity.runOnUiThread {
+            Log.i(TAG, "show() placementId=$loadedPlacementId rewarded=$rewarded")
             UnityAds.show(
               activity,
               loadedPlacementId,
@@ -89,17 +105,32 @@ class UnityAdsModule(private val reactContext: ReactApplicationContext) :
                   error: UnityAds.UnityAdsShowError,
                   message: String
                 ) {
-                  promise.reject("UNITY_ADS_SHOW_FAILED", "[$error] $message")
+                  Log.e(
+                    TAG,
+                    "onUnityAdsShowFailure() placementId=$failedPlacementId rewarded=$rewarded error=$error message=$message"
+                  )
+                  promise.reject(
+                    "UNITY_ADS_SHOW_FAILED",
+                    "placementId=$failedPlacementId rewarded=$rewarded [$error] $message"
+                  )
                 }
 
-                override fun onUnityAdsShowStart(startedPlacementId: String) = Unit
+                override fun onUnityAdsShowStart(startedPlacementId: String) {
+                  Log.i(TAG, "onUnityAdsShowStart() placementId=$startedPlacementId rewarded=$rewarded")
+                }
 
-                override fun onUnityAdsShowClick(clickedPlacementId: String) = Unit
+                override fun onUnityAdsShowClick(clickedPlacementId: String) {
+                  Log.i(TAG, "onUnityAdsShowClick() placementId=$clickedPlacementId rewarded=$rewarded")
+                }
 
                 override fun onUnityAdsShowComplete(
                   completedPlacementId: String,
                   state: UnityAds.UnityAdsShowCompletionState
                 ) {
+                  Log.i(
+                    TAG,
+                    "onUnityAdsShowComplete() placementId=$completedPlacementId rewarded=$rewarded state=$state"
+                  )
                   if (!rewarded) {
                     promise.resolve(true)
                     return
@@ -117,7 +148,14 @@ class UnityAdsModule(private val reactContext: ReactApplicationContext) :
           error: UnityAds.UnityAdsLoadError,
           message: String
         ) {
-          promise.reject("UNITY_ADS_LOAD_FAILED", "[$error] $message")
+          Log.e(
+            TAG,
+            "onUnityAdsFailedToLoad() placementId=$failedPlacementId rewarded=$rewarded error=$error message=$message"
+          )
+          promise.reject(
+            "UNITY_ADS_LOAD_FAILED",
+            "placementId=$failedPlacementId rewarded=$rewarded [$error] $message"
+          )
         }
       }
     )

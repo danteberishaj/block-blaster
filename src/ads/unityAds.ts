@@ -1,8 +1,10 @@
 import { NativeModules, Platform } from 'react-native';
 
-const ANDROID_GAME_ID = '800006066';
-const ANDROID_REWARDED_PLACEMENT_ID = 'Rewarded_Android';
-const ANDROID_INTERSTITIAL_PLACEMENT_ID = 'Interstitial_Android';
+const ANDROID_GAME_ID = process.env.EXPO_PUBLIC_UNITY_ANDROID_GAME_ID ?? '800006066';
+const ANDROID_REWARDED_PLACEMENT_ID =
+  process.env.EXPO_PUBLIC_UNITY_ANDROID_REWARDED_PLACEMENT_ID ?? 'Rewarded_Android';
+const ANDROID_INTERSTITIAL_PLACEMENT_ID =
+  process.env.EXPO_PUBLIC_UNITY_ANDROID_INTERSTITIAL_PLACEMENT_ID ?? 'Interstitial_Android';
 
 type UnityAdsBridge = {
   initialize(gameId: string, testMode: boolean): Promise<boolean>;
@@ -19,6 +21,10 @@ export function initializeUnityAds(): Promise<boolean> {
   if (Platform.OS !== 'android' || !bridge) return Promise.resolve(false);
 
   if (!initPromise) {
+    console.log('Unity Ads initialize() requested', {
+      gameId: ANDROID_GAME_ID,
+      testMode: __DEV__,
+    });
     initPromise = bridge
       .initialize(ANDROID_GAME_ID, __DEV__)
       .catch((error) => {
@@ -38,6 +44,9 @@ export async function showRewardedReviveAd(): Promise<boolean> {
   if (!initialized) return true;
 
   try {
+    console.log('Unity Ads rewarded load/show requested', {
+      placementId: ANDROID_REWARDED_PLACEMENT_ID,
+    });
     return await bridge.showRewarded(ANDROID_REWARDED_PLACEMENT_ID);
   } catch (error) {
     console.warn('Unity rewarded ad failed', error);
@@ -52,6 +61,9 @@ export async function showGameOverInterstitial(): Promise<boolean> {
   if (!initialized) return true;
 
   try {
+    console.log('Unity Ads interstitial load/show requested', {
+      placementId: ANDROID_INTERSTITIAL_PLACEMENT_ID,
+    });
     return await bridge.showInterstitial(ANDROID_INTERSTITIAL_PLACEMENT_ID);
   } catch (error) {
     console.warn('Unity interstitial ad failed', error);
