@@ -28,6 +28,7 @@ import {
   placeShape,
   randomTrayForBoard,
   scoreMove,
+  shuffleTrayForBoard,
 } from '../game/logic';
 import { randomTray, shapeCatalog } from '../game/shapes';
 import {
@@ -61,6 +62,8 @@ const MIN_BOARD_CELL = 32;
 const MAX_CONTENT_WIDTH = MAX_BOARD_CELL * BOARD_SIZE + H_MARGIN * 2 + 48;
 const dealTrayForBoard = (board: Board) =>
   randomTrayForBoard(board, randomTray, shapeCatalog);
+const shuffleDealForBoard = (board: Board) =>
+  shuffleTrayForBoard(board, randomTray, shapeCatalog);
 
 export default function GameScreen({ onHome }: { onHome: () => void }) {
   const { width, height } = useWindowDimensions();
@@ -390,7 +393,7 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
   const onShuffle = useCallback(() => {
     disarmBomb();
     if (!spend('shuffle')) return;
-    const t = dealTrayForBoard(boardRef.current);
+    const t = shuffleDealForBoard(boardRef.current);
     trayRef.current = t;
     setTray(t);
     setPreview(null);
@@ -464,7 +467,7 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
   // Revive from game over by spending a shuffle for fresh pieces.
   const onRevive = useCallback(() => {
     if (!spend('shuffle')) return;
-    const t = dealTrayForBoard(boardRef.current);
+    const t = shuffleDealForBoard(boardRef.current);
     trayRef.current = t;
     setTray(t);
     comboRef.current = 0;

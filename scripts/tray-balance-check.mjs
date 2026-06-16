@@ -174,8 +174,8 @@ function analyzeShapeOpportunity(board, shape) {
   return { placements, maxImmediateLineClear };
 }
 
-function chooseRepairShape(board, candidates) {
-  const playable = candidates
+function playableRepairCandidates(board, candidates) {
+  return candidates
     .map((shape) => ({ shape, stats: analyzeShapeOpportunity(board, shape) }))
     .filter(({ stats }) => stats.placements > 0)
     .sort((a, b) => {
@@ -187,8 +187,38 @@ function chooseRepairShape(board, candidates) {
       }
       return b.shape.cells.length - a.shape.cells.length;
     });
+}
 
-  return playable[0]?.shape ?? null;
+function repairTray(board, tray, minPlayable) {
+  const targetPlayable = Math.min(minPlayable, tray.length);
+  if (trayStats(board, tray).playable >= targetPlayable) {
+    return { tray, intervened: false };
+  }
+
+  const repairs = playableRepairCandidates(board, shapeCatalog());
+  if (repairs.length === 0) return { tray, intervened: false };
+
+  const next = tray.slice();
+  const slotsByNeed = next
+    .map((shape, index) => ({
+      index,
+      stats: analyzeShapeOpportunity(board, shape),
+    }))
+    .sort((a, b) => {
+      if (a.stats.placements !== b.stats.placements) {
+        return a.stats.placements - b.stats.placements;
+      }
+      return a.stats.maxImmediateLineClear - b.stats.maxImmediateLineClear;
+    });
+
+  let repairIndex = 0;
+  for (const { index } of slotsByNeed) {
+    if (trayStats(board, next).playable >= targetPlayable) break;
+    next[index] = repairs[repairIndex % repairs.length].shape;
+    repairIndex += 1;
+  }
+
+  return { tray: next, intervened: true };
 }
 
 function dealTray(board, tray) {
@@ -196,11 +226,29 @@ function dealTray(board, tray) {
     return { tray, intervened: false };
   }
 
-  const repair = chooseRepairShape(board, shapeCatalog());
-  return {
-    tray: repair ? [repair, tray[1], tray[2]] : tray,
-    intervened: !!repair,
-  };
+  return repairTray(board, tray, 1);
+}
+
+function shuffleTray(board, rand, attempts = 8) {
+  let bestTray = randomTray(rand);
+  let bestStats = trayStats(board, bestTray);
+  if (bestStats.playable >= 2) return { tray: bestTray, intervened: false };
+
+  for (let i = 1; i < attempts; i++) {
+    const tray = randomTray(rand);
+    const stats = trayStats(board, tray);
+    if (stats.playable >= 2) return { tray, intervened: false };
+    if (
+      stats.playable > bestStats.playable ||
+      (stats.playable === bestStats.playable &&
+        totalPlacements(board, tray) > totalPlacements(board, bestTray))
+    ) {
+      bestTray = tray;
+      bestStats = stats;
+    }
+  }
+
+  return repairTray(board, bestTray, 2);
 }
 
 function trayStats(board, tray) {
@@ -208,6 +256,13 @@ function trayStats(board, tray) {
   const immediateClear = tray.some((shape) => immediateClearCount(board, shape) > 0);
   const multiLine = tray.some((shape) => immediateClearCount(board, shape) >= 2);
   return { playable, immediateClear, multiLine };
+}
+
+function totalPlacements(board, tray) {
+  return tray.reduce(
+    (sum, shape) => sum + analyzeShapeOpportunity(board, shape).placements,
+    0
+  );
 }
 
 function pct(value) {
@@ -219,7 +274,7 @@ let failed = false;
 
 console.log('Tray balance check');
 console.log(`boards per fill: ${RUNS_PER_FILL}`);
-console.log('fill | raw dead | dealt dead | intervention | 2+ lift | 3 lift | playable lift | clear lift | multi-line dealt');
+console.log('fill | raw dead | dealt dead | intervention | helper dead | helper 2+ | playable lift | clear lift | multi-line dealt');
 
 for (const fillRate of FILL_RATES) {
   const aggregate = {
@@ -230,10 +285,8 @@ for (const fillRate of FILL_RATES) {
     randomClear: 0,
     smartClear: 0,
     smartMulti: 0,
-    randomTwoPlus: 0,
-    smartTwoPlus: 0,
-    randomThree: 0,
-    smartThree: 0,
+    helperDead: 0,
+    helperTwoPlus: 0,
     intervention: 0,
   };
 
@@ -243,18 +296,17 @@ for (const fillRate of FILL_RATES) {
     const plain = trayStats(board, rawTray);
     const dealt = dealTray(board, rawTray);
     const smart = trayStats(board, dealt.tray);
+    const helper = trayStats(board, shuffleTray(board, rand).tray);
 
     aggregate.randomDead += plain.playable === 0 ? 1 : 0;
     aggregate.smartDead += smart.playable === 0 ? 1 : 0;
+    aggregate.helperDead += helper.playable === 0 ? 1 : 0;
     aggregate.randomPlayable += plain.playable;
     aggregate.smartPlayable += smart.playable;
     aggregate.randomClear += plain.immediateClear ? 1 : 0;
     aggregate.smartClear += smart.immediateClear ? 1 : 0;
     aggregate.smartMulti += smart.multiLine ? 1 : 0;
-    aggregate.randomTwoPlus += plain.playable >= 2 ? 1 : 0;
-    aggregate.smartTwoPlus += smart.playable >= 2 ? 1 : 0;
-    aggregate.randomThree += plain.playable === 3 ? 1 : 0;
-    aggregate.smartThree += smart.playable === 3 ? 1 : 0;
+    aggregate.helperTwoPlus += helper.playable >= 2 ? 1 : 0;
     aggregate.intervention += dealt.intervened ? 1 : 0;
   }
 
@@ -268,11 +320,8 @@ for (const fillRate of FILL_RATES) {
   const clearLift = smartClear - randomClear;
   const smartMulti = aggregate.smartMulti / RUNS_PER_FILL;
   const intervention = aggregate.intervention / RUNS_PER_FILL;
-  const twoPlusLift =
-    aggregate.smartTwoPlus / RUNS_PER_FILL -
-    aggregate.randomTwoPlus / RUNS_PER_FILL;
-  const threeLift =
-    aggregate.smartThree / RUNS_PER_FILL - aggregate.randomThree / RUNS_PER_FILL;
+  const helperDead = aggregate.helperDead / RUNS_PER_FILL;
+  const helperTwoPlus = aggregate.helperTwoPlus / RUNS_PER_FILL;
 
   console.log(
     [
@@ -280,8 +329,8 @@ for (const fillRate of FILL_RATES) {
       pct(randomDead),
       pct(smartDead),
       pct(intervention),
-      pct(twoPlusLift),
-      pct(threeLift),
+      pct(helperDead),
+      pct(helperTwoPlus),
       playableLift.toFixed(2),
       pct(clearLift),
       pct(smartMulti),
@@ -289,10 +338,8 @@ for (const fillRate of FILL_RATES) {
   );
 
   if (fillRate <= 0.75 && smartDead > 0.01) failed = true;
+  if (helperDead > 0) failed = true;
   if (Math.abs(intervention - randomDead) > 0.01) failed = true;
-  if (fillRate >= 0.5 && fillRate < 0.75 && twoPlusLift > 0.05) failed = true;
-  if (fillRate >= 0.5 && fillRate < 0.75 && threeLift > 0.05) failed = true;
-  if (fillRate >= 0.75 && twoPlusLift > 0.1) failed = true;
   if (fillRate >= 0.75 && clearLift > 0.1) failed = true;
 }
 

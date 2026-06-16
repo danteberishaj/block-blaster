@@ -207,8 +207,8 @@ export function analyzeTrayOpportunity(
   };
 }
 
-function chooseRepairShape(board: Board, candidates: Shape[]): Shape | null {
-  const playable = candidates
+function playableRepairCandidates(board: Board, candidates: Shape[]) {
+  return candidates
     .map((shape) => ({ shape, stats: analyzeShapeOpportunity(board, shape) }))
     .filter(({ stats }) => stats.placements > 0)
     .sort((a, b) => {
@@ -220,8 +220,45 @@ function chooseRepairShape(board: Board, candidates: Shape[]): Shape | null {
       }
       return b.shape.cells.length - a.shape.cells.length;
     });
+}
 
-  return playable[0]?.shape ?? null;
+function repairTrayForBoard(
+  board: Board,
+  tray: Shape[],
+  candidates: Shape[],
+  minPlayable: number
+): Shape[] {
+  const targetPlayable = Math.min(minPlayable, tray.length);
+  if (analyzeTrayOpportunity(board, tray).playableCount >= targetPlayable) {
+    return tray;
+  }
+
+  const repairs = playableRepairCandidates(board, candidates);
+  if (repairs.length === 0) return tray;
+
+  const next = tray.slice();
+  const slotsByNeed = next
+    .map((shape, index) => ({
+      index,
+      stats: analyzeShapeOpportunity(board, shape),
+    }))
+    .sort((a, b) => {
+      if (a.stats.placements !== b.stats.placements) {
+        return a.stats.placements - b.stats.placements;
+      }
+      return a.stats.maxImmediateLineClear - b.stats.maxImmediateLineClear;
+    });
+
+  let repairIndex = 0;
+  for (const { index } of slotsByNeed) {
+    if (analyzeTrayOpportunity(board, next).playableCount >= targetPlayable) {
+      break;
+    }
+    next[index] = repairs[repairIndex % repairs.length].shape;
+    repairIndex += 1;
+  }
+
+  return next;
 }
 
 /** Deal raw random trays unless the first deal is immediately dead. */
@@ -233,8 +270,35 @@ export function randomTrayForBoard(
   const tray = makeTray();
   if (!analyzeTrayOpportunity(board, tray).dead) return tray;
 
-  const repair = chooseRepairShape(board, makeCandidateShapes());
-  return repair ? [repair, tray[1], tray[2]] : tray;
+  return repairTrayForBoard(board, tray, makeCandidateShapes(), 1);
+}
+
+/** Helper shuffles should feel useful: try for two playable pieces, not just one. */
+export function shuffleTrayForBoard(
+  board: Board,
+  makeTray: () => Shape[],
+  makeCandidateShapes: () => Shape[],
+  attempts = 8
+): Shape[] {
+  let bestTray = makeTray();
+  let bestStats = analyzeTrayOpportunity(board, bestTray);
+  if (bestStats.playableCount >= 2) return bestTray;
+
+  for (let i = 1; i < attempts; i++) {
+    const tray = makeTray();
+    const stats = analyzeTrayOpportunity(board, tray);
+    if (stats.playableCount >= 2) return tray;
+    if (
+      stats.playableCount > bestStats.playableCount ||
+      (stats.playableCount === bestStats.playableCount &&
+        stats.totalPlacements > bestStats.totalPlacements)
+    ) {
+      bestTray = tray;
+      bestStats = stats;
+    }
+  }
+
+  return repairTrayForBoard(board, bestTray, makeCandidateShapes(), 2);
 }
 
 /** Game over when none of the remaining tray shapes fit anywhere. */

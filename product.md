@@ -28,8 +28,10 @@ already present. This branch improves those assets instead of adding unrelated m
 
 ## Implemented In This Branch
 
-- Board-aware tray repair: tray refills and shuffles remain raw random unless the
-  first deal is immediately dead, then a deterministic repair piece is inserted.
+- Board-aware tray repair: passive tray refills remain raw random unless the first
+  deal is immediately dead, then a deterministic repair piece is inserted.
+- Stronger helper shuffle: Shuffle/Revive now try to return at least two currently
+  playable pieces, falling back to the best playable repair on cramped boards.
 - Clear previews: valid drag previews simulate the move and mark cells that will clear.
 - Fit pressure: tray pieces that cannot fit the current board dim and stop dragging.
 - Combo visibility: the header now shows an active chain badge once the streak reaches
@@ -69,7 +71,8 @@ already present. This branch improves those assets instead of adding unrelated m
 
 Helpers are limited pressure valves, not the core game.
 
-- Shuffle: replaces the tray with a board-aware fresh tray.
+- Shuffle: replaces the tray with a board-aware fresh tray. Because it is a limited
+  helper, it is allowed to be more generous than passive refills.
 - Break: removes exactly one tapped filled block.
 - Hint: highlights a placeable shape and location.
 
@@ -92,8 +95,10 @@ Randomness can create tension, but it should not routinely end runs without a de
 Tray generation may be random, weighted, or bag-based, but it should preserve these
 constraints:
 
-- A fresh tray should usually include at least one immediately placeable piece.
-- Tray repair should only intervene when the raw deal is dead.
+- A passive fresh tray should usually include at least one immediately placeable piece.
+- Passive tray repair should only intervene when the raw deal is dead.
+- A paid Shuffle should never return a fully dead tray, and should usually give at
+  least two currently playable pieces.
 - High-value line clears should still require planning.
 - Bad boards should feel caused by earlier choices, not hidden generation rules.
 
