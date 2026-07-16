@@ -1,0 +1,48 @@
+{
+  "configVersion": 0,
+  "apple": {
+    "copyright": "2026 REPLACE WITH PUBLISHER LEGAL NAME",
+    "categories": ["GAMES"],
+    "info": {
+      "en-US": {
+        "title": "Rowflare",
+        "subtitle": "Offline Block Puzzle",
+        "description": "Place colorful shapes on an 8×8 board, clear complete rows and columns, and build consecutive-clear combos.\n\nRowflare is a focused, offline-first puzzle with drag controls and a tap-to-place alternative. Board-aware trays reduce unfair dead deals, while limited Shuffle, Break, and Hint helpers keep difficult runs moving.\n\nFeatures:\n• Fast offline sessions with no account\n• Resume an active run after closing the app\n• Combo scoring, Cross Blasts, haptics, and synthesized audio\n• Reduced-motion and screen-reader-aware controls\n• Optional rewarded helpers where available; no forced ads\n\nPlan your space, protect your next move, and chase a brighter chain.",
+        "keywords": [
+          "blocks,puzzle,offline,grid,logic,combo,brain,casual,shape,board"
+        ],
+        "releaseNotes": "Rowflare 1.0 introduces the complete offline puzzle loop, local run restore, accessible tap placement, combo scoring, and polished feedback.",
+        "privacyPolicyUrl": "https://REPLACE-WITH-YOUR-DOMAIN.example/privacy",
+        "supportUrl": "https://REPLACE-WITH-YOUR-DOMAIN.example/support"
+      }
+    },
+    "advisory": {
+      "alcoholTobaccoOrDrugUseOrReferences": "NONE",
+      "gamblingSimulated": "NONE",
+      "medicalOrTreatmentInformation": "NONE",
+      "profanityOrCrudeHumor": "NONE",
+      "sexualContentGraphicAndNudity": "NONE",
+      "sexualContentOrNudity": "NONE",
+      "horrorOrFearThemes": "NONE",
+      "matureOrSuggestiveThemes": "NONE",
+      "violenceCartoonOrFantasy": "NONE",
+      "violenceRealistic": "NONE",
+      "violenceRealisticProlongedGraphicOrSadistic": "NONE",
+      "contests": "NONE",
+      "gambling": false,
+      "unrestrictedWebAccess": false,
+      "seventeenPlus": false
+    },
+    "release": {
+      "automaticRelease": false,
+      "phasedRelease": true
+    },
+    "review": {
+      "firstName": "REPLACE",
+      "lastName": "REPLACE",
+      "email": "REPLACE@example.com",
+      "phone": "+1 000-000-0000",
+      "notes": "No account is required. The game works offline. Rewarded ads are currently Android-only and appear only after a helper reaches zero; no ad is forced. Reviewers can use the complete iOS game without an ad."
+    }
+  }
+}

@@ -1,6 +1,6 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { palette, radii } from '../theme/theme';
+import React from "react";
+import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { palette, radii } from "../theme/theme";
 
 interface Props {
   score: number;
@@ -10,117 +10,190 @@ interface Props {
 }
 
 function Header({ score, highScore, isNewBest, comboStreak }: Props) {
+  const { fontScale } = useWindowDimensions();
+  const stacked = fontScale >= 1.45;
   const scoreGap = Math.max(0, highScore - score);
   const showCombo = comboStreak >= 2;
   const scoreLabel =
     isNewBest || (highScore > 0 && score >= highScore)
-      ? 'NEW BEST!'
+      ? "NEW BEST!"
       : highScore > 0
-      ? `${scoreGap} TO BEST`
-      : 'SCORE';
+        ? `${scoreGap} TO BEST`
+        : "SCORE";
+
+  const bestCard = (
+    <View style={[styles.sideCard, styles.bestCard]}>
+      <Text style={styles.label} numberOfLines={1} adjustsFontSizeToFit>
+        BEST
+      </Text>
+      <Text
+        style={styles.bestValue}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.55}
+      >
+        {highScore}
+      </Text>
+    </View>
+  );
+
+  const scoreCard = (
+    <View style={[styles.scoreWrap, stacked && styles.scoreWrapStacked]}>
+      <Text
+        style={styles.scoreValue}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.55}
+      >
+        {score}
+      </Text>
+      <Text style={styles.scoreLabel} numberOfLines={1} adjustsFontSizeToFit>
+        {scoreLabel}
+      </Text>
+    </View>
+  );
+
+  const comboCard = (
+    <View
+      style={[
+        styles.sideCard,
+        styles.comboSlot,
+        showCombo ? styles.comboCard : styles.ghost,
+      ]}
+    >
+      {showCombo && (
+        <>
+          <Text style={styles.label} numberOfLines={1} adjustsFontSizeToFit>
+            CHAIN
+          </Text>
+          <Text
+            style={styles.comboValue}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.65}
+          >
+            x{comboStreak}
+          </Text>
+        </>
+      )}
+    </View>
+  );
+
+  if (stacked) {
+    return (
+      <View style={[styles.wrap, styles.wrapStacked]}>
+        {scoreCard}
+        <View style={styles.secondaryRow}>
+          {bestCard}
+          {comboCard}
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.wrap}>
-      <View style={[styles.sideCard, styles.bestCard]}>
-        <Text style={styles.label}>BEST</Text>
-        <Text style={styles.bestValue}>{highScore}</Text>
-      </View>
-
-      <View style={styles.scoreWrap}>
-        <Text style={styles.scoreValue}>{score}</Text>
-        <Text style={styles.scoreLabel}>{scoreLabel}</Text>
-      </View>
-
-      <View
-        style={[
-          styles.sideCard,
-          styles.comboSlot,
-          showCombo ? styles.comboCard : styles.ghost,
-        ]}
-      >
-        {showCombo && (
-          <>
-            <Text style={styles.label}>CHAIN</Text>
-            <Text style={styles.comboValue}>x{comboStreak}</Text>
-          </>
-        )}
-      </View>
+      {bestCard}
+      {scoreCard}
+      {comboCard}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
     minHeight: 78,
-    position: 'relative',
+    flexDirection: "row",
+    gap: 8,
+  },
+  wrapStacked: {
+    flexDirection: "column",
+    minHeight: 112,
+    gap: 4,
+  },
+  secondaryRow: {
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
   },
   sideCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(27,33,80,0.84)',
+    flex: 1,
+    minWidth: 0,
+    maxWidth: 120,
+    minHeight: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    backgroundColor: "rgba(27,33,80,0.84)",
     borderRadius: radii.pill,
-    paddingHorizontal: 14,
-    height: 44,
-    minWidth: 92,
+    paddingHorizontal: 10,
     borderWidth: 1,
   },
   bestCard: {
-    position: 'absolute',
-    left: 0,
-    top: 16,
     borderColor: palette.surfaceLight,
   },
   comboSlot: {
-    position: 'absolute',
-    right: 0,
-    top: 16,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   comboCard: {
-    borderColor: 'rgba(255,210,90,0.58)',
-    backgroundColor: 'rgba(255,210,90,0.12)',
+    borderColor: "rgba(255,210,90,0.58)",
+    backgroundColor: "rgba(255,210,90,0.12)",
   },
   ghost: {
-    backgroundColor: 'transparent',
-    borderColor: 'transparent',
+    backgroundColor: "transparent",
+    borderColor: "transparent",
   },
   label: {
     color: palette.textDim,
     fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 1.4,
+    fontWeight: "800",
+    letterSpacing: 1.2,
+    flexShrink: 1,
   },
   bestValue: {
     color: palette.gold,
     fontSize: 22,
-    fontWeight: '900',
+    fontWeight: "900",
+    flexShrink: 1,
   },
   comboValue: {
     color: palette.gold,
     fontSize: 22,
-    fontWeight: '900',
+    fontWeight: "900",
+    flexShrink: 1,
   },
   scoreWrap: {
-    alignItems: 'center',
+    flex: 1.2,
+    minWidth: 0,
+    alignItems: "center",
+  },
+  scoreWrapStacked: {
+    flexGrow: 0,
+    flexShrink: 0,
+    flexBasis: "auto",
+    width: "100%",
   },
   scoreValue: {
     color: palette.text,
     fontSize: 46,
-    fontWeight: '900',
+    fontWeight: "900",
     textShadowColor: palette.accent,
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 18,
+    maxWidth: "100%",
   },
   scoreLabel: {
     color: palette.textDim,
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: "800",
     letterSpacing: 2,
     marginTop: -4,
+    maxWidth: "100%",
   },
 });
 

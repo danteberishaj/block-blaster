@@ -1,6 +1,6 @@
-import React, { useEffect } from 'react';
-import { View } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import React, { useEffect } from "react";
+import { View } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   runOnJS,
   SharedValue,
@@ -8,10 +8,11 @@ import Animated, {
   useSharedValue,
   withRepeat,
   withTiming,
-} from 'react-native-reanimated';
-import { BOARD_SIZE } from '../theme/theme';
-import { Shape } from '../game/types';
-import ShapeView from './ShapeView';
+} from "react-native-reanimated";
+import { BOARD_SIZE } from "../theme/theme";
+import { Shape } from "../game/types";
+import ShapeView from "./ShapeView";
+import { useReducedMotion } from "../accessibility/useReducedMotion";
 
 // How far above the fingertip the dragged piece floats so it stays visible.
 export const LIFT_FACTOR = 1.0;
@@ -28,6 +29,7 @@ interface Props {
   enabled: boolean;
   playable: boolean;
   highlight: boolean;
+  selected: boolean;
   // shared drag state (owned by GameScreen)
   dragX: SharedValue<number>;
   dragY: SharedValue<number>;
@@ -41,9 +43,12 @@ interface Props {
   onStart: (index: number) => void;
   onMove: (row: number, col: number, index: number) => void;
   onEnd: (index: number, row: number, col: number) => void;
+  onCancel: (index: number) => void;
+  onSelect: (index: number) => void;
 }
 
 function DraggableShape(props: Props) {
+  const reducedMotion = useReducedMotion();
   const {
     shape,
     index,
@@ -53,6 +58,7 @@ function DraggableShape(props: Props) {
     enabled,
     playable,
     highlight,
+    selected,
     dragX,
     dragY,
     dragActive,
@@ -64,6 +70,8 @@ function DraggableShape(props: Props) {
     onStart,
     onMove,
     onEnd,
+    onCancel,
+    onSelect,
   } = props;
 
   const w = shape.width;
@@ -73,7 +81,7 @@ function DraggableShape(props: Props) {
   // Map a finger position to the nearest fully-on-board top-left cell.
   // Returns row/col = -1 when the piece is too far off the board (a cancel).
   const computeCell = (x: number, y: number) => {
-    'worklet';
+    "worklet";
     const pieceLeft = x - (w * boardCell) / 2;
     const pieceTop = y - h * boardCell - lift;
     const rawCol = (pieceLeft - gridX.value) / boardCell;
@@ -93,9 +101,9 @@ function DraggableShape(props: Props) {
 
   const pan = Gesture.Pan()
     .enabled(enabled)
-    .minDistance(0)
+    .minDistance(4)
     .onStart((e) => {
-      'worklet';
+      "worklet";
       dragX.value = e.absoluteX;
       dragY.value = e.absoluteY;
       dragW.value = w;
@@ -105,7 +113,7 @@ function DraggableShape(props: Props) {
       runOnJS(onStart)(index);
     })
     .onUpdate((e) => {
-      'worklet';
+      "worklet";
       dragX.value = e.absoluteX;
       dragY.value = e.absoluteY;
       const { row, col } = computeCell(e.absoluteX, e.absoluteY);
@@ -116,42 +124,67 @@ function DraggableShape(props: Props) {
       }
     })
     .onEnd((e) => {
-      'worklet';
+      "worklet";
       const { row, col } = computeCell(e.absoluteX, e.absoluteY);
       dragActive.value = 0;
       runOnJS(onEnd)(index, row, col);
     })
     .onFinalize(() => {
-      'worklet';
+      "worklet";
       dragActive.value = 0;
+      runOnJS(onCancel)(index);
     });
+
+  const tap = Gesture.Tap()
+    .enabled(enabled)
+    .maxDuration(350)
+    .onEnd((_event, success) => {
+      "worklet";
+      if (success) runOnJS(onSelect)(index);
+    });
+
+  const gesture = Gesture.Race(pan, tap);
 
   // Pulse when this piece is the hint.
   const pulse = useSharedValue(1);
   useEffect(() => {
     if (highlight) {
-      pulse.value = withRepeat(
-        withTiming(1.12, { duration: 460 }),
-        -1,
-        true
-      );
+      if (reducedMotion) {
+        pulse.value = 1.06;
+        return;
+      }
+      pulse.value = withRepeat(withTiming(1.12, { duration: 460 }), -1, true);
     } else {
       pulse.value = withTiming(1, { duration: 160 });
     }
-  }, [highlight]);
+  }, [highlight, reducedMotion]);
   const pulseStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulse.value }],
   }));
 
   return (
-    <GestureDetector gesture={pan}>
+    <GestureDetector gesture={gesture}>
       <Animated.View
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel={`Tray shape ${index + 1}, ${shape.cells.length} blocks, ${shape.width} by ${shape.height}, ${
+          playable ? "can be placed" : "cannot fit"
+        }`}
+        accessibilityHint="Activate to select this shape, or drag it onto the board"
+        accessibilityState={{ disabled: !enabled, selected }}
+        accessibilityActions={[{ name: "activate", label: "Select shape" }]}
+        onAccessibilityTap={() => {
+          if (enabled) onSelect(index);
+        }}
+        onAccessibilityAction={({ nativeEvent }) => {
+          if (enabled && nativeEvent.actionName === "activate") onSelect(index);
+        }}
         style={[
+          styles.container,
           {
             opacity: isDragging ? 0 : playable ? 1 : 0.28,
-            alignItems: 'center',
-            justifyContent: 'center',
           },
+          selected && styles.selected,
           pulseStyle,
         ]}
       >
@@ -160,5 +193,22 @@ function DraggableShape(props: Props) {
     </GestureDetector>
   );
 }
+
+const styles = {
+  container: {
+    minWidth: 72,
+    minHeight: 64,
+    padding: 6,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: "transparent",
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+  },
+  selected: {
+    borderColor: "#5B7CFF",
+    backgroundColor: "rgba(91,124,255,0.16)",
+  },
+};
 
 export default React.memo(DraggableShape);

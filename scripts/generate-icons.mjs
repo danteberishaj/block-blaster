@@ -1,86 +1,90 @@
-// Generates all app icon / splash PNGs from a single SVG logo definition.
+// Generates all Rowflare icon / splash PNGs from one SVG mark.
 // Run with: node scripts/generate-icons.mjs
-import sharp from 'sharp';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import sharp from "sharp";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const ASSETS = join(__dirname, '..', 'assets');
+const ASSETS = join(__dirname, "..", "assets");
 
-// 2x2 block cluster colors (match src/theme/theme.ts blockColors)
-const BLOCKS = [
-  { from: '#FF7AB8', to: '#FF477E' }, // pink   (top-left)
-  { from: '#6FE0FF', to: '#2D9CFF' }, // blue   (top-right)
-  { from: '#C79BFF', to: '#8A5BFF' }, // purple (bottom-left)
-  { from: '#9BFF7A', to: '#37D67A' }, // green  (bottom-right)
+const TILES = [
+  { from: "#6FE0FF", to: "#2D9CFF" },
+  { from: "#FF7AB8", to: "#FF477E" },
+  { from: "#FFD56F", to: "#FFA53B" },
 ];
 
-const S = 300; // block size
-const G = 30; // gap
-const R = 58; // corner radius
-const START = (1024 - (S * 2 + G)) / 2; // center the 2x2
-
+const SIZE = 220;
+const GAP = 34;
+const RADIUS = 46;
+const START_X = (1024 - (SIZE * 3 + GAP * 2)) / 2;
 const positions = [
-  [START, START],
-  [START + S + G, START],
-  [START, START + S + G],
-  [START + S + G, START + S + G],
+  [START_X, 402],
+  [START_X + SIZE + GAP, 402],
+  [START_X + (SIZE + GAP) * 2, 402],
 ];
 
 function defs() {
-  const grads = BLOCKS.map(
-    (b, i) => `
-    <linearGradient id="g${i}" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="${b.from}"/>
-      <stop offset="1" stop-color="${b.to}"/>
-    </linearGradient>`
-  ).join('');
+  const gradients = TILES.map(
+    (tile, index) => `
+      <linearGradient id="tile${index}" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="${tile.from}"/>
+        <stop offset="1" stop-color="${tile.to}"/>
+      </linearGradient>`,
+  ).join("");
 
   const clips = positions
     .map(
-      ([x, y], i) => `
-    <clipPath id="c${i}">
-      <rect x="${x}" y="${y}" width="${S}" height="${S}" rx="${R}" ry="${R}"/>
-    </clipPath>`
+      ([x, y], index) => `
+        <clipPath id="clip${index}">
+          <rect x="${x}" y="${y}" width="${SIZE}" height="${SIZE}" rx="${RADIUS}"/>
+        </clipPath>`,
     )
-    .join('');
+    .join("");
 
   return `<defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#1B2150"/>
-      <stop offset="1" stop-color="#0B0E24"/>
+    <linearGradient id="background" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#202A66"/>
+      <stop offset="1" stop-color="#080A1F"/>
     </linearGradient>
-    <radialGradient id="glow" cx="0.5" cy="0.46" r="0.55">
-      <stop offset="0" stop-color="#5B7CFF" stop-opacity="0.45"/>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.48">
+      <stop offset="0" stop-color="#FFD25A" stop-opacity="0.42"/>
       <stop offset="1" stop-color="#5B7CFF" stop-opacity="0"/>
     </radialGradient>
-    ${grads}
+    ${gradients}
     ${clips}
   </defs>`;
 }
 
-function cluster() {
-  return positions
-    .map(([x, y], i) => {
-      const glossH = S * 0.34;
-      return `
-      <rect x="${x}" y="${y}" width="${S}" height="${S}" rx="${R}" ry="${R}" fill="url(#g${i})"/>
-      <g clip-path="url(#c${i})">
-        <rect x="${x}" y="${y}" width="${S}" height="${glossH}" fill="#FFFFFF" fill-opacity="0.28"/>
-      </g>`;
-    })
-    .join('');
+function mark() {
+  const tiles = positions
+    .map(
+      ([x, y], index) => `
+      <rect x="${x}" y="${y}" width="${SIZE}" height="${SIZE}" rx="${RADIUS}" fill="url(#tile${index})"/>
+      <g clip-path="url(#clip${index})">
+        <rect x="${x}" y="${y}" width="${SIZE}" height="${SIZE * 0.34}" fill="#FFFFFF" fill-opacity="0.26"/>
+      </g>`,
+    )
+    .join("");
+
+  const flare = `
+    <path d="M512 322 L542 472 L692 512 L542 552 L512 702 L482 552 L332 512 L482 472 Z"
+      fill="#FFFFFF" fill-opacity="0.96"/>
+    <path d="M512 430 L594 512 L512 594 L430 512 Z"
+      fill="#FFD25A" fill-opacity="0.9"/>`;
+
+  return tiles + flare;
 }
 
-function buildSVG({ background, scale = 1 }) {
-  const body = `<g transform="translate(512,512) scale(${scale}) translate(-512,-512)">${cluster()}</g>`;
-  const bg = background
-    ? `<rect width="1024" height="1024" fill="url(#bg)"/>
-       <ellipse cx="512" cy="470" rx="560" ry="560" fill="url(#glow)"/>`
-    : '';
+function buildSvg({ background, scale = 1 }) {
+  const backdrop = background
+    ? `<rect width="1024" height="1024" fill="url(#background)"/>
+       <ellipse cx="512" cy="512" rx="560" ry="560" fill="url(#glow)"/>`
+    : "";
+  const body = `<g transform="translate(512,512) scale(${scale}) translate(-512,-512)">${mark()}</g>`;
+
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
     ${defs()}
-    ${bg}
+    ${backdrop}
     ${body}
   </svg>`;
 }
@@ -90,27 +94,23 @@ async function render(svg, size, file) {
     .resize(size, size)
     .png()
     .toFile(join(ASSETS, file));
-  console.log('  ✓', file, `(${size}px)`);
+  console.log("  ✓", file, `(${size}px)`);
 }
 
 async function main() {
-  console.log('Generating icons →', ASSETS);
-  // Full app icon (iOS + fallback): gradient bg + glow + blocks
-  await render(buildSVG({ background: true, scale: 1 }), 1024, 'icon.png');
-  // Android adaptive foreground: transparent, blocks shrunk into the safe zone
+  console.log("Generating Rowflare icons →", ASSETS);
+  await render(buildSvg({ background: true }), 1024, "icon.png");
   await render(
-    buildSVG({ background: false, scale: 0.82 }),
+    buildSvg({ background: false, scale: 0.76 }),
     1024,
-    'adaptive-icon.png'
+    "adaptive-icon.png",
   );
-  // Splash logo: transparent (plugin paints the bg color behind it)
-  await render(buildSVG({ background: false, scale: 1 }), 512, 'splash-icon.png');
-  // Web favicon
-  await render(buildSVG({ background: true, scale: 1 }), 48, 'favicon.png');
-  console.log('Done.');
+  await render(buildSvg({ background: false }), 512, "splash-icon.png");
+  await render(buildSvg({ background: true }), 48, "favicon.png");
+  console.log("Done.");
 }
 
-main().catch((e) => {
-  console.error(e);
+main().catch((error) => {
+  console.error(error);
   process.exit(1);
 });

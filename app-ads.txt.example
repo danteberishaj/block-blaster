@@ -1,0 +1,7 @@
+# Do not deploy this example as-is.
+# In Unity Monetization > Settings > Organization > App-ads.txt, copy the full
+# current authorized-seller list. Unity says the list can change, so recheck it
+# monthly and whenever the dashboard reports an issue.
+ownerdomain=your-publisher-domain.example
+
+# Paste every dashboard-generated seller line below this comment.

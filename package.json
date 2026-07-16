@@ -1,40 +1,51 @@
 {
-  "name": "block-blaster",
+  "name": "rowflare",
   "version": "1.0.0",
   "main": "index.ts",
+  "engines": {
+    "node": ">=20.19.4 <21"
+  },
   "dependencies": {
-    "@expo/metro-runtime": "~6.1.2",
+    "@expo/metro-runtime": "~56.0.17",
     "@react-native-async-storage/async-storage": "2.2.0",
-    "babel-preset-expo": "~54.0.10",
-    "expo": "~54.0.0",
-    "expo-audio": "~1.1.1",
-    "expo-haptics": "~15.0.8",
-    "expo-linear-gradient": "~15.0.8",
-    "expo-splash-screen": "~31.0.13",
-    "expo-status-bar": "~3.0.9",
+    "babel-preset-expo": "~56.0.0",
+    "expo": "^56.0.0",
+    "expo-asset": "~56.0.20",
+    "expo-audio": "~56.0.12",
+    "expo-dev-client": "~56.0.23",
+    "expo-haptics": "~56.0.3",
+    "expo-linear-gradient": "~56.0.4",
+    "expo-splash-screen": "~56.0.13",
+    "expo-status-bar": "~56.0.4",
+    "expo-system-ui": "~56.0.5",
     "lucide-react-native": "^1.18.0",
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "react-native": "0.81.5",
-    "react-native-gesture-handler": "~2.28.0",
-    "react-native-reanimated": "~4.1.1",
-    "react-native-svg": "15.12.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.85.3",
+    "react-native-gesture-handler": "~2.31.1",
+    "react-native-reanimated": "4.3.1",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-svg": "15.15.4",
     "react-native-web": "^0.21.0",
-    "react-native-worklets": "0.5.1"
+    "react-native-worklets": "0.8.3"
   },
   "devDependencies": {
-    "@types/react": "~19.1.10",
+    "@types/react": "~19.2.14",
     "sharp": "^0.35.1",
-    "typescript": "~5.9.2"
+    "tsx": "^4.23.1",
+    "typescript": "~6.0.3"
   },
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "balance:tray": "node scripts/tray-balance-check.mjs"
+    "balance:tray": "node scripts/tray-balance-check.mjs",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "export:check": "expo export --platform all --output-dir dist",
+    "verify": "npm run typecheck && npm run test && npm run balance:tray && npm run export:check"
   },
   "private": true,
-  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+  "packageManager": "npm@10.8.2"
 }

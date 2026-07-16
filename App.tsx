@@ -1,44 +1,73 @@
-import 'react-native-gesture-handler';
-import React, { useEffect, useState } from 'react';
-import { StyleSheet } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { StatusBar } from 'expo-status-bar';
-import * as SplashScreen from 'expo-splash-screen';
+import "react-native-gesture-handler";
+import React, { useEffect, useState } from "react";
+import { AppState, StyleSheet } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
+import * as SplashScreen from "expo-splash-screen";
 
-import GameScreen from './src/components/GameScreen';
-import HomeScreen from './src/components/HomeScreen';
-import AnimatedSplash from './src/components/AnimatedSplash';
-import { initAudio } from './src/audio/audio';
-import { palette } from './src/theme/theme';
+import GameScreen from "./src/components/GameScreen";
+import HomeScreen from "./src/components/HomeScreen";
+import AnimatedSplash from "./src/components/AnimatedSplash";
+import AppErrorBoundary from "./src/components/AppErrorBoundary";
+import { initAudio, setAppAudioActive } from "./src/audio/audio";
+import { hasSeenIntro, markIntroSeen } from "./src/storage/storage";
+import { palette } from "./src/theme/theme";
 
 // Keep the native splash up until our JS is ready, then hand off to the
 // animated splash for a seamless branded intro.
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-type Screen = 'home' | 'game';
+type Screen = "home" | "game";
 
 export default function App() {
-  const [showSplash, setShowSplash] = useState(true);
-  const [screen, setScreen] = useState<Screen>('home');
+  const [showSplash, setShowSplash] = useState<boolean | null>(null);
+  const [screen, setScreen] = useState<Screen>("home");
 
   useEffect(() => {
-    // Native splash can drop now; the animated splash takes over instantly.
-    SplashScreen.hideAsync().catch(() => {});
-    // Start the background music + load the line-clear sound.
-    initAudio();
+    let mounted = true;
+    Promise.all([hasSeenIntro(), initAudio()]).then(([introSeen]) => {
+      if (!mounted) return;
+      setShowSplash(!introSeen);
+      SplashScreen.hideAsync().catch((error) => {
+        console.error("[Rowflare] Failed to hide the native splash.", error);
+      });
+    });
+
+    const appStateSubscription = AppState.addEventListener(
+      "change",
+      (state) => {
+        setAppAudioActive(state === "active");
+      },
+    );
+
+    return () => {
+      mounted = false;
+      appStateSubscription.remove();
+    };
   }, []);
+
+  const finishSplash = () => {
+    setShowSplash(false);
+    void markIntroSeen();
+  };
 
   return (
     <GestureHandlerRootView style={styles.root}>
-      <StatusBar style="light" />
+      <SafeAreaProvider>
+        <AppErrorBoundary>
+          <StatusBar style="light" />
 
-      {screen === 'home' ? (
-        <HomeScreen onPlay={() => setScreen('game')} />
-      ) : (
-        <GameScreen onHome={() => setScreen('home')} />
-      )}
+          {showSplash === false &&
+            (screen === "home" ? (
+              <HomeScreen onPlay={() => setScreen("game")} />
+            ) : (
+              <GameScreen onHome={() => setScreen("home")} />
+            ))}
 
-      {showSplash && <AnimatedSplash onFinish={() => setShowSplash(false)} />}
+          {showSplash === true && <AnimatedSplash onFinish={finishSplash} />}
+        </AppErrorBoundary>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }

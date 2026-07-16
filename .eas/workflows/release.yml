@@ -1,0 +1,58 @@
+name: Build and submit a store candidate
+
+on:
+  workflow_dispatch: {}
+
+defaults:
+  tools:
+    node: 20.19.4
+
+jobs:
+  verify:
+    name: Verify source and bundles
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - name: Run production checks
+        run: npm run verify
+      - name: Verify Expo dependency and configuration health
+        run: npx expo-doctor@latest
+      - name: Block high or critical production advisories
+        run: npm audit --omit=dev --audit-level=high
+
+  build_android:
+    name: Build Android store candidate
+    needs: [verify]
+    type: build
+    params:
+      platform: android
+      profile: production
+
+  build_ios:
+    name: Build iOS store candidate
+    needs: [verify]
+    type: build
+    params:
+      platform: ios
+      profile: production
+
+  approve_submission:
+    name: Submit these candidates to internal testing?
+    needs: [build_android, build_ios]
+    type: require-approval
+
+  submit_android:
+    name: Submit Android to Play internal track
+    needs: [build_android, approve_submission]
+    type: submit
+    params:
+      build_id: ${{ needs.build_android.outputs.build_id }}
+      profile: production
+
+  submit_ios:
+    name: Submit iOS to TestFlight
+    needs: [build_ios, approve_submission]
+    type: submit
+    params:
+      build_id: ${{ needs.build_ios.outputs.build_id }}
+      profile: production

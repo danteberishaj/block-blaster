@@ -17,6 +17,8 @@ expo-env.d.ts
 *.p12
 *.key
 *.mobileprovision
+google-service-account.json
+AuthKey_*.p8
 
 # Metro
 .metro-health-check*
@@ -32,6 +34,7 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env
 
 # typescript
 *.tsbuildinfo
@@ -39,3 +42,4 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+/modules/*/android/build/
