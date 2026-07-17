@@ -42,9 +42,10 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "balance:tray": "node scripts/tray-balance-check.mjs",
-    "test": "node --import tsx --test tests/*.test.ts",
+    "check:node": "node scripts/check-node.mjs",
+    "test": "npm run check:node && node --import tsx --test tests/*.test.ts",
     "export:check": "expo export --platform all --output-dir dist",
-    "verify": "npm run typecheck && npm run test && npm run balance:tray && npm run export:check"
+    "verify": "npm run check:node && npm run typecheck && npm run test && npm run balance:tray && npm run export:check"
   },
   "private": true,
   "packageManager": "npm@10.8.2"

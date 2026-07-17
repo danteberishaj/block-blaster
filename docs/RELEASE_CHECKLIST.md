@@ -143,6 +143,24 @@ remains enabled.
 - [ ] Ads obey configured age/content/privacy choices and use production placement
       IDs only in release candidates.
 
+Targeted scenarios from the 2026-07-17 static audit (`docs/AD_PATH_AUDIT.md`);
+these decide the real severity of the audit's F1/F2 caveats:
+
+- [ ] Wedge a show (kill the Unity ad process or enable airplane mode mid-show):
+      after the 5-minute show timeout the game must recover with no reward. Then
+      request another ad — if it returns busy forever, F1 is confirmed and needs
+      a fix before launch.
+- [ ] Rotate/recreate the activity mid-show: the request settles, controls
+      unlock, audio resumes.
+- [ ] Background and force-kill during the 20-second load window and during the
+      show: no reward, no crash, controls unlock on return.
+- [ ] Rapid double-tap on Watch Ad and on modal Revive under real touch timing:
+      exactly one native load request.
+- [ ] Earn a helper via ad, force-stop immediately, relaunch: the per-run reward
+      cap is restored and the helper cannot be re-earned.
+- [ ] On a release build (`__DEV__` false), confirm served ads are
+      contextual/non-personalized and no test ads appear.
+
 ## 8. Store-candidate rollout
 
 - [ ] Run `.eas/workflows/release.yml` manually. It must verify, build both
