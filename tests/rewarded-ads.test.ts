@@ -29,14 +29,14 @@ function createMockNativeModule(options: MockOptions = {}): MockNativeModule {
       if (typeof r === "function") return r();
       return r === undefined ? true : r;
     },
-    async initializeAsync(gameId, testMode) {
-      module.initializeCalls.push([gameId, testMode]);
+    async initializeAsync(appKey, testMode) {
+      module.initializeCalls.push([appKey, testMode]);
       const r = options.initializeResult;
       if (typeof r === "function") return r();
       return r === undefined ? true : r;
     },
-    async showRewardedAsync(placementId, rewardKey) {
-      module.showCalls.push([placementId, rewardKey]);
+    async showRewardedAsync(adUnitId, rewardKey) {
+      module.showCalls.push([adUnitId, rewardKey]);
       const r = options.showResult;
       if (typeof r === "function") return r();
       return r === undefined ? true : r;
@@ -49,8 +49,8 @@ function baseEnv(overrides: Partial<RewardedAdsEnv> = {}): RewardedAdsEnv {
   return {
     platformOS: "android",
     nativeModule: createMockNativeModule(),
-    gameId: "game-123",
-    rewardedPlacementId: "placement-abc",
+    appKey: "appkey-123",
+    rewardedAdUnitId: "adunit-abc",
     isDev: false,
     ...overrides,
   };
@@ -82,9 +82,9 @@ test("null native module → unavailable", async () => {
   assert.equal(core.canShowRewardedHelperAds(), false);
 });
 
-test("missing gameId → unavailable and canShow false", async () => {
+test("missing appKey → unavailable and canShow false", async () => {
   const nativeModule = createMockNativeModule();
-  const core = createRewardedAdsCore(baseEnv({ nativeModule, gameId: undefined }));
+  const core = createRewardedAdsCore(baseEnv({ nativeModule, appKey: undefined }));
 
   const result = await core.showRewardedHelperAd("hint");
   assert.deepEqual(result, {
@@ -95,15 +95,15 @@ test("missing gameId → unavailable and canShow false", async () => {
   assert.equal(nativeModule.configurePrivacyCalls.length, 0);
 });
 
-test("blank/whitespace-only gameId → unavailable and canShow false", async () => {
-  const core = createRewardedAdsCore(baseEnv({ gameId: "   " }));
+test("blank/whitespace-only appKey → unavailable and canShow false", async () => {
+  const core = createRewardedAdsCore(baseEnv({ appKey: "   " }));
   const result = await core.showRewardedHelperAd("hint");
   assert.equal(result.status, "unavailable");
   assert.equal(core.canShowRewardedHelperAds(), false);
 });
 
-test("blank/whitespace-only placementId → unavailable and canShow false", async () => {
-  const core = createRewardedAdsCore(baseEnv({ rewardedPlacementId: "  \t " }));
+test("blank/whitespace-only adUnitId → unavailable and canShow false", async () => {
+  const core = createRewardedAdsCore(baseEnv({ rewardedAdUnitId: "  \t " }));
   const result = await core.showRewardedHelperAd("hint");
   assert.deepEqual(result, {
     status: "unavailable",
@@ -179,7 +179,7 @@ test("showRewardedAsync resolving true → rewarded (exactly one show call)", as
   assert.deepEqual(result, { status: "rewarded" });
   assert.equal(nativeModule.showCalls.length, 1);
   assert.deepEqual(nativeModule.showCalls[0], [
-    "placement-abc",
+    "adunit-abc",
     "helper_shuffle",
   ]);
 });
@@ -218,7 +218,7 @@ test("privacy configured with (false, true, true) — compliance-critical consta
   assert.equal(nativeModule.configurePrivacyCalls.length, 1);
   assert.deepEqual(nativeModule.configurePrivacyCalls[0], [false, true, true]);
   // isDev is forwarded as the initialize testMode flag.
-  assert.deepEqual(nativeModule.initializeCalls[0], ["game-123", true]);
+  assert.deepEqual(nativeModule.initializeCalls[0], ["appkey-123", true]);
 });
 
 test("canShowRewardedHelperAds true only when fully configured on android", () => {

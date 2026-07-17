@@ -23,7 +23,7 @@ without ads.
 
 - Node 20.19.4 or newer is required by Expo SDK 56.
 - Reanimated 4 uses `react-native-worklets`; keep its Babel plugin last.
-- Ads require an Android development/release build, Unity environment values,
+- Ads require an Android development/release build, LevelPlay environment values,
   and completed dashboard/privacy/store setup. Never treat Expo Go as an ad test.
 
 ## Verify

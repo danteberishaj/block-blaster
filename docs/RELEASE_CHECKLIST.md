@@ -41,18 +41,22 @@ not replace a failed gate with an assumption.
 
 ## 3. Ads and privacy setup
 
-- [ ] Create the production Android project and rewarded placement in Unity.
-- [ ] Store `EXPO_PUBLIC_UNITY_ANDROID_GAME_ID` and
-      `EXPO_PUBLIC_UNITY_ANDROID_REWARDED_PLACEMENT_ID` in the EAS production
-      environment. Confirm the build is not using test ads.
-- [ ] Verify Unity privacy, regional consent/opt-out, age designation, ad-content
-      filters, and data-processing terms with counsel. The app currently requests
-      contextual/non-personalized ads; that does not remove every regional notice
-      or consent obligation.
-- [ ] Download the complete current authorized-seller list from Unity's
+- [ ] Create the production Android app and a Rewarded ad unit on the Unity
+      LevelPlay dashboard (`platform.ironsrc.com`). Record the **App Key** and the
+      **Rewarded ad unit ID**.
+- [ ] Store `EXPO_PUBLIC_LEVELPLAY_ANDROID_APP_KEY` and
+      `EXPO_PUBLIC_LEVELPLAY_ANDROID_REWARDED_AD_UNIT_ID` in the EAS production
+      environment. Confirm the build is not serving test ads (LevelPlay test ads
+      come from dashboard-registered test devices, not an SDK flag).
+- [ ] Verify LevelPlay privacy, regional consent/opt-out, age designation,
+      ad-content filters, and data-processing terms with counsel. The app calls
+      `setGDPRConsent(false)`, `setCCPA(true)` (do-not-sell), and
+      `is_deviceid_optout` for contextual/non-personalized ads; that does not
+      remove every regional notice or consent obligation.
+- [ ] Download the complete current authorized-seller list from the LevelPlay
       App-ads.txt dashboard, add `ownerdomain`, host it at the exact root domain used
-      by the store listings, and verify it in Unity. Recheck it monthly because the
-      seller list can change. See Unity's [setup guide](https://docs.unity.com/en-us/monetization/dashboard/app-ads-txt/set-up-app-ads-txt).
+      by the store listings, and verify it in the dashboard. Recheck it monthly
+      because the seller list can change.
 - [ ] Complete Google Play Data safety, **Contains ads**, advertising ID, and
       target-audience declarations from observed production behavior—not from this
       checklist alone.
@@ -60,10 +64,11 @@ not replace a failed gate with an assumption.
       but the declarations must match the final binary and all other dependencies.
 - [ ] Decide whether Android-only rewarded helpers are acceptable for launch and
       document this in review notes/support. Core gameplay remains identical.
-- [ ] Track Unity's direct-integration guidance. Unity says direct Ads remains
-      supported, but recommends LevelPlay for monetization performance after April
-      1, 2026; treat migration as a measured post-launch decision, not a blind
-      release-day dependency swap. See the [Unity Ads changelog](https://docs.unity.com/grow/ads/changelog).
+- [ ] 2026-07-17: migrated from direct Unity Ads to Unity LevelPlay
+      (`mediation-sdk:9.5.0`) because Unity de-prioritized direct integration
+      after April 1, 2026. Rewarded reward name/amount are defined on the
+      dashboard ad unit; keep the ad unit's reward at 1 so one completed ad grants
+      one helper use.
 
 ## 4. Automated release gates
 
@@ -94,6 +99,9 @@ npm audit --omit=dev
       vibration, audio settings, and wake lock are expected for foreground ad
       playback. Topics, AdServices attribution, boot-completed, microphone,
       storage, overlay, notification, and foreground-service permissions are not.
+      Note: the LevelPlay SDK declares AdServices attribution, but `app.json`
+      deliberately strips it to keep the contextual-ads privacy posture; confirm
+      during the §7 device matrix that rewarded fill still works without it.
 - [ ] Build a signed Android App Bundle with the production EAS profile.
 - [ ] Build a signed iOS archive with the production EAS profile.
 - [ ] Confirm bundle identifiers, app name, icon, splash, version, build numbers,

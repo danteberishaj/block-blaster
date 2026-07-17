@@ -12,15 +12,15 @@ export interface RewardedAdsNativeModule {
     userOptOut: boolean,
     nonBehavioral: boolean,
   ): Promise<boolean>;
-  initializeAsync(gameId: string, testMode: boolean): Promise<boolean>;
-  showRewardedAsync(placementId: string, rewardKey: string): Promise<boolean>;
+  initializeAsync(appKey: string, testMode: boolean): Promise<boolean>;
+  showRewardedAsync(adUnitId: string, rewardKey: string): Promise<boolean>;
 }
 
 export interface RewardedAdsEnv {
   platformOS: string;
   nativeModule: RewardedAdsNativeModule | null | undefined;
-  gameId: string | undefined;
-  rewardedPlacementId: string | undefined;
+  appKey: string | undefined;
+  rewardedAdUnitId: string | undefined;
   isDev: boolean;
 }
 
@@ -31,8 +31,8 @@ export interface RewardedAdsCore {
 
 export function createRewardedAdsCore(env: RewardedAdsEnv): RewardedAdsCore {
   const { platformOS, nativeModule, isDev } = env;
-  const gameId = env.gameId?.trim();
-  const rewardedPlacementId = env.rewardedPlacementId?.trim();
+  const appKey = env.appKey?.trim();
+  const rewardedAdUnitId = env.rewardedAdUnitId?.trim();
 
   let initializationPromise: Promise<boolean> | null = null;
 
@@ -40,21 +40,21 @@ export function createRewardedAdsCore(env: RewardedAdsEnv): RewardedAdsCore {
     return Boolean(
       platformOS === "android" &&
         nativeModule &&
-        gameId &&
-        rewardedPlacementId,
+        appKey &&
+        rewardedAdUnitId,
     );
   }
 
   async function initializeRewardedAds(): Promise<boolean> {
     const ads = nativeModule;
-    if (!ads || !gameId) return false;
+    if (!ads || !appKey) return false;
 
     if (!initializationPromise) {
       initializationPromise = ads
         .configurePrivacyAsync(false, true, true)
         .then((privacyConfigured) => {
           if (!privacyConfigured) return false;
-          return ads.initializeAsync(gameId, isDev);
+          return ads.initializeAsync(appKey, isDev);
         })
         .then((initialized) => {
           if (!initialized) initializationPromise = null;
@@ -63,7 +63,7 @@ export function createRewardedAdsCore(env: RewardedAdsEnv): RewardedAdsCore {
         .catch((error) => {
           initializationPromise = null;
           if (isDev)
-            console.warn("Unity Ads privacy or initialization failed.", error);
+            console.warn("LevelPlay privacy or initialization failed.", error);
           return false;
         });
     }
@@ -88,7 +88,7 @@ export function createRewardedAdsCore(env: RewardedAdsEnv): RewardedAdsCore {
       };
     }
 
-    if (!gameId || !rewardedPlacementId) {
+    if (!appKey || !rewardedAdUnitId) {
       return {
         status: "unavailable",
         message: "Rewarded ads are not configured yet.",
@@ -105,7 +105,7 @@ export function createRewardedAdsCore(env: RewardedAdsEnv): RewardedAdsCore {
 
     try {
       const rewarded = await nativeModule.showRewardedAsync(
-        rewardedPlacementId,
+        rewardedAdUnitId,
         `helper_${helper}`,
       );
 
@@ -116,7 +116,7 @@ export function createRewardedAdsCore(env: RewardedAdsEnv): RewardedAdsCore {
             message: "Finish the ad to earn +1 helper use.",
           };
     } catch (error) {
-      if (isDev) console.warn("Unity rewarded ad failed.", error);
+      if (isDev) console.warn("LevelPlay rewarded ad failed.", error);
       return {
         status: "error",
         message: "No ad is available right now. Please try again soon.",

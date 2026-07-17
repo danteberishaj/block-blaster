@@ -1,14 +1,14 @@
 import { Platform } from "react-native";
-import RowflareUnityAds from "../../modules/unity-ads";
+import RowflareLevelPlayAds from "../../modules/levelplay-ads";
 import { createRewardedAdsCore } from "./rewardedAdsCore";
 
 export type { RewardedAdResult } from "./rewardedAdsCore";
 
 const core = createRewardedAdsCore({
   platformOS: Platform.OS,
-  nativeModule: RowflareUnityAds,
-  gameId: process.env.EXPO_PUBLIC_UNITY_ANDROID_GAME_ID,
-  rewardedPlacementId: process.env.EXPO_PUBLIC_UNITY_ANDROID_REWARDED_PLACEMENT_ID,
+  nativeModule: RowflareLevelPlayAds,
+  appKey: process.env.EXPO_PUBLIC_LEVELPLAY_ANDROID_APP_KEY,
+  rewardedAdUnitId: process.env.EXPO_PUBLIC_LEVELPLAY_ANDROID_REWARDED_AD_UNIT_ID,
   isDev: __DEV__,
 });
 

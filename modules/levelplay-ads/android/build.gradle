@@ -1,0 +1,22 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.rowflarelevelplayads'
+version = '1.0.0'
+
+android {
+  namespace "expo.modules.rowflarelevelplayads"
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+}
+
+dependencies {
+  implementation 'com.unity3d.ads-mediation:mediation-sdk:9.5.0'
+  implementation 'com.google.android.gms:play-services-appset:16.0.0'
+  implementation 'com.google.android.gms:play-services-ads-identifier:18.1.0'
+  implementation 'com.google.android.gms:play-services-basement:18.1.0'
+}

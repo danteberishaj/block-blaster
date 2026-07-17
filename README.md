@@ -36,11 +36,11 @@ npm run android
 npm run ios
 ```
 
-Rewarded ads use the local Android Expo module in `modules/unity-ads`, so they
-are unavailable in Expo Go, on web, and currently on iOS. Copy `.env.example`
-to `.env` and supply the Unity Android Game ID and rewarded placement ID for an
-Android development or release build. Missing ad configuration fails closed;
-the game remains playable and no reward is granted.
+Rewarded ads use the local Android Expo module in `modules/levelplay-ads`, so
+they are unavailable in Expo Go, on web, and currently on iOS. Copy
+`.env.example` to `.env` and supply the Unity LevelPlay Android app key and
+rewarded ad unit ID for an Android development or release build. Missing ad
+configuration fails closed; the game remains playable and no reward is granted.
 
 ## Verification
 
@@ -65,7 +65,7 @@ src/game/                    Pure rules, shapes, helper economy, saved-run parse
 src/ads/rewardedAds.ts       Fail-closed rewarded-ad orchestration
 src/audio/audio.ts           App/ad-aware synthesized audio playback
 src/storage/storage.ts       Serialized local persistence and legacy migration
-modules/unity-ads/           Android Expo module backed by Unity Ads 4.19
+modules/levelplay-ads/       Android Expo module backed by Unity LevelPlay 9.5
 tests/                       Node-based pure logic and saved-run tests
 .github/workflows/ci.yml     Pull-request and main-branch verification
 .eas/workflows/release.yml   Gated store-candidate build and internal submission

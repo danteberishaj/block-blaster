@@ -41,11 +41,11 @@ public release.
 
 ## Android native dependency graph
 
-The local Expo module pins `com.unity3d.ads:unity-ads:4.19.0` exactly and adds a
-strict `com.unity3d.ads-mediation:adquality-sdk:9.8.0` constraint because Unity's
-published graph requests that transitive through a dynamic range. The SDK is
-isolated to the Android rewarded-ad path and the app remains playable when that
-path fails closed.
+The local Expo module pins `com.unity3d.ads-mediation:mediation-sdk:9.5.0`
+(Unity LevelPlay) exactly, plus the Google Play services artifacts LevelPlay
+requires (`play-services-appset:16.0.0`, `play-services-ads-identifier:18.1.0`,
+`play-services-basement:18.1.0`). The SDK is isolated to the Android
+rewarded-ad path and the app remains playable when that path fails closed.
 
 For every candidate, inspect the generated release graph with:
 
@@ -64,4 +64,7 @@ The merged release manifest intentionally permits network state, Internet,
 advertising ID, vibration, audio settings, and wake lock for foreground video-ad
 playback. Topics, AdServices attribution, boot-completed, microphone, storage,
 overlay, notification, and foreground-service permissions are explicitly
-removed in `app.json`.
+removed in `app.json`. The LevelPlay SDK declares AdServices attribution in its
+own manifest; the `app.json` block strips it deliberately to preserve the
+contextual-ads posture, so rewarded fill must be confirmed on device with the
+permission absent.
