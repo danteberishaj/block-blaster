@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { AccessibilityInfo } from "react-native";
 
 export function useReducedMotion(): boolean {
-  const [reducedMotion, setReducedMotion] = useState(false);
+  // Avoid starting motion until the async OS preference has resolved.
+  const [reducedMotion, setReducedMotion] = useState(true);
 
   useEffect(() => {
     let mounted = true;

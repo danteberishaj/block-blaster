@@ -169,7 +169,15 @@ export function createStorageCore(storage: StorageKV): StorageCore {
       const raw = await storage.getItem(RUN_KEY);
       if (!raw) return null;
 
-      const parsed = parseSavedRunState(JSON.parse(raw));
+      let decoded: unknown;
+      try {
+        decoded = JSON.parse(raw);
+      } catch {
+        await storage.removeItem(RUN_KEY);
+        return null;
+      }
+
+      const parsed = parseSavedRunState(decoded);
       if (!parsed) {
         await storage.removeItem(RUN_KEY);
         return null;

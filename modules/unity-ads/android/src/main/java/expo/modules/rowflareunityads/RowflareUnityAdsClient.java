@@ -260,7 +260,7 @@ public final class RowflareUnityAdsClient {
                 activeTimeout,
                 settled,
                 adOwner,
-                false,
+                true,
                 callback,
                 false,
                 "UNITY_ADS_SHOW_TIMEOUT",

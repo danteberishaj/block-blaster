@@ -80,6 +80,7 @@ import { PRODUCT } from "../config/product";
 
 const H_MARGIN = 14;
 const GRID_PAD = 6; // must match Grid's internal PAD
+const TOP_CONTROL_SIZE = 48;
 const MAX_BOARD_CELL = 48;
 const MIN_BOARD_CELL = 28;
 const MAX_CONTENT_WIDTH = MAX_BOARD_CELL * BOARD_SIZE + H_MARGIN * 2 + 48;
@@ -88,8 +89,34 @@ const dealTrayForBoard = (board: Board) =>
 const shuffleDealForBoard = (board: Board) =>
   shuffleTrayForBoard(board, randomTray, shapeCatalog);
 
+function cellListsEqual(
+  left: [number, number][],
+  right: [number, number][],
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every(
+      ([row, col], index) =>
+        row === right[index][0] && col === right[index][1],
+    )
+  );
+}
+
+function previewsEqual(
+  current: PreviewState | null,
+  next: PreviewState,
+): boolean {
+  return (
+    current !== null &&
+    current.valid === next.valid &&
+    current.colorIndex === next.colorIndex &&
+    cellListsEqual(current.cells, next.cells) &&
+    cellListsEqual(current.clearCells, next.clearCells)
+  );
+}
+
 export default function GameScreen({ onHome }: { onHome: () => void }) {
-  const { width, height } = useWindowDimensions();
+  const { width, height, fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [board, setBoard] = useState<Board>(() => createEmptyBoard());
   const [tray, setTray] = useState<(Shape | null)[]>(() =>
@@ -157,18 +184,27 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
   const gridY = useSharedValue(0);
   const lastKey = useSharedValue(-9999);
   const compactLayout = width < 360 || height < 650;
-  const compactHelpers = width < 420;
+  const compactLargeText = compactLayout && fontScale >= 1.45;
+  const compactHelpers = width < 420 || compactLargeText;
   const rewardedAdsAvailable = canShowRewardedHelperAds();
   const topPad = insets.top + spacing.sm;
   const bottomPad = Math.max(insets.bottom, spacing.sm);
+  // Header stacks at 1.45x. Reserve that extra chrome height and only relax
+  // the board floor in this constrained accessibility-text layout.
+  const largeTextHeightBudget = compactLargeText
+    ? Math.ceil(24 * fontScale) + (TOP_CONTROL_SIZE - 36)
+    : 0;
+  const minimumBoardCell = compactLargeText
+    ? Math.max(20, MIN_BOARD_CELL - Math.ceil((fontScale - 1) * 7))
+    : MIN_BOARD_CELL;
   const boardCellFromWidth = Math.floor(
     (width - H_MARGIN * 2 - GRID_PAD * 2) / BOARD_SIZE,
   );
   const boardCellFromHeight = Math.floor(
-    (height - topPad - bottomPad - 230) / 10.5,
+    (height - topPad - bottomPad - 230 - largeTextHeightBudget) / 10.5,
   );
   const boardCell = Math.max(
-    MIN_BOARD_CELL,
+    minimumBoardCell,
     Math.min(MAX_BOARD_CELL, boardCellFromWidth, boardCellFromHeight),
   );
   const trayCell = Math.round(boardCell * 0.5);
@@ -322,6 +358,16 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
     setSelectedIndex(null);
   }, []);
 
+  const disarmBomb = useCallback((announceCancellation = true) => {
+    if (!bombArmedRef.current) return;
+
+    bombArmedRef.current = false;
+    setBombArmed(false);
+    if (announceCancellation) {
+      AccessibilityInfo.announceForAccessibility("Break cancelled.");
+    }
+  }, []);
+
   const handleStart = useCallback(
     (_index: number) => {
       clearSelection();
@@ -346,7 +392,15 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
     const clearCells = valid
       ? clearLines(placeShape(boardRef.current, shape, row, col)).clearedCells
       : [];
-    setPreview({ cells, valid, colorIndex: shape.colorIndex, clearCells });
+    const nextPreview = {
+      cells,
+      valid,
+      colorIndex: shape.colorIndex,
+      clearCells,
+    };
+    setPreview((current) =>
+      previewsEqual(current, nextPreview) ? current : nextPreview,
+    );
   }, []);
 
   const commitPlacement = useCallback(
@@ -577,10 +631,9 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
     rewardUsageRef.current = startingRewardUsage;
     setHelpers(startingHelpers);
     setRewardUsage(startingRewardUsage);
-    bombArmedRef.current = false;
-    setBombArmed(false);
+    disarmBomb();
     clearHint();
-  }, [clearHint, clearSelection]);
+  }, [clearHint, clearSelection, disarmBomb]);
 
   const finishTutorial = useCallback(() => {
     setShowTutorial(false);
@@ -614,13 +667,6 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
     helpersRef.current = next;
     setHelpers(next);
     return true;
-  }, []);
-
-  const disarmBomb = useCallback(() => {
-    if (bombArmedRef.current) {
-      bombArmedRef.current = false;
-      setBombArmed(false);
-    }
   }, []);
 
   const selectShape = useCallback(
@@ -745,11 +791,17 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
     clearSelection();
     clearHint();
     setPreview(null);
-    const next = !bombArmedRef.current;
-    bombArmedRef.current = next;
-    setBombArmed(next);
+    if (bombArmedRef.current) {
+      disarmBomb();
+    } else {
+      bombArmedRef.current = true;
+      setBombArmed(true);
+      AccessibilityInfo.announceForAccessibility(
+        "Break armed. Tap a filled block.",
+      );
+    }
     Haptics.selectionAsync().catch(() => {});
-  }, [clearHint, clearSelection]);
+  }, [clearHint, clearSelection, disarmBomb]);
 
   const onCellTap = useCallback(
     (r: number, c: number) => {
@@ -764,7 +816,7 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
       for (const [rr, cc] of cells) nb[rr][cc] = null;
       boardRef.current = nb;
       setBoard(nb);
-      disarmBomb();
+      disarmBomb(false);
       const gl = gridLayoutRef.current;
       if (gl) {
         const id = ++burstIdRef.current;
@@ -890,14 +942,23 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
           >
             <GameIcon name="back" size={22} color={palette.textDim} />
           </Pressable>
-          <Text style={[styles.brand, compactLayout && styles.brandCompact]}>
+          <Text
+            maxFontSizeMultiplier={compactLargeText ? 1 : undefined}
+            style={[styles.brand, compactLayout && styles.brandCompact]}
+          >
             {PRODUCT.wordmarkLead}
-            <Text style={{ color: palette.accent }}>
+            <Text
+              maxFontSizeMultiplier={compactLargeText ? 1 : undefined}
+              style={{ color: palette.accent }}
+            >
               {PRODUCT.wordmarkAccent}
             </Text>
           </Text>
           <View style={styles.rightCluster}>
-            <SoundToggle disabled={interactionLocked} />
+            <SoundToggle
+              size={TOP_CONTROL_SIZE}
+              disabled={interactionLocked}
+            />
             <Pressable
               onPress={requestRestart}
               disabled={interactionLocked}
@@ -951,7 +1012,17 @@ export default function GameScreen({ onHome }: { onHome: () => void }) {
           onWatchAd={onWatchHelperAd}
         />
 
-        <Text style={styles.modeInstruction} accessibilityLiveRegion="polite">
+        <Text
+          style={[
+            styles.modeInstruction,
+            compactLargeText && styles.modeInstructionCompactLarge,
+          ]}
+          accessibilityLiveRegion="polite"
+          maxFontSizeMultiplier={compactLargeText ? 1 : undefined}
+          numberOfLines={compactLargeText ? 1 : undefined}
+          adjustsFontSizeToFit={compactLargeText}
+          minimumFontScale={compactLargeText ? 0.85 : undefined}
+        >
           {bombArmed
             ? "Break armed — tap a filled block."
             : selectedIndex !== null
@@ -1073,14 +1144,14 @@ const styles = StyleSheet.create({
   },
   brandBar: {
     width: "100%",
-    height: 42,
+    height: TOP_CONTROL_SIZE,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: spacing.sm,
     position: "relative",
   },
   brandBarCompact: {
-    height: 36,
+    height: TOP_CONTROL_SIZE,
     marginBottom: spacing.xs,
     paddingRight: 40,
   },
@@ -1100,9 +1171,9 @@ const styles = StyleSheet.create({
     left: 0,
   },
   iconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: TOP_CONTROL_SIZE,
+    height: TOP_CONTROL_SIZE,
+    borderRadius: TOP_CONTROL_SIZE / 2,
     backgroundColor: palette.surface,
     alignItems: "center",
     justifyContent: "center",
@@ -1143,6 +1214,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     textAlign: "center",
+  },
+  modeInstructionCompactLarge: {
+    marginTop: 0,
+    marginBottom: 2,
   },
   traySlot: {
     flex: 1,

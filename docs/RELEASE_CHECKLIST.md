@@ -72,7 +72,7 @@ From a clean checkout:
 ```bash
 npm ci
 npm run verify
-npx expo-doctor@latest
+npm run doctor
 npm audit --omit=dev
 ```
 
@@ -147,9 +147,9 @@ Targeted scenarios from the 2026-07-17 static audit (`docs/AD_PATH_AUDIT.md`);
 these decide the real severity of the audit's F1/F2 caveats:
 
 - [ ] Wedge a show (kill the Unity ad process or enable airplane mode mid-show):
-      after the 5-minute show timeout the game must recover with no reward. Then
-      request another ad — if it returns busy forever, F1 is confirmed and needs
-      a fix before launch.
+      after the 5-minute show timeout the game must recover with no reward and a
+      later ad request must not remain permanently busy. Confirm a late callback
+      cannot reward, overlap a newer request, or release the newer request's owner.
 - [ ] Rotate/recreate the activity mid-show: the request settles, controls
       unlock, audio resumes.
 - [ ] Background and force-kill during the 20-second load window and during the

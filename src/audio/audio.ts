@@ -27,6 +27,21 @@ function reportAudioError(operation: string, error: unknown): void {
   console.error(`[Rowflare audio] ${operation} failed.`, error);
 }
 
+function canPlaySoundEffects(): boolean {
+  return audioPlaybackSupported && soundOn && appIsActive && !adIsActive;
+}
+
+function pauseSoundEffects(): void {
+  if (!audioPlaybackSupported) return;
+
+  try {
+    clear?.pause();
+    crossBlast?.pause();
+  } catch (error) {
+    reportAudioError("pause sound effects", error);
+  }
+}
+
 function syncMusicPlayback(): void {
   if (!audioPlaybackSupported || !music) return;
 
@@ -98,6 +113,7 @@ export function toggleSound(): boolean {
   soundPreferenceVersion += 1;
   notifySoundState();
   saveSoundOn(soundOn);
+  if (!soundOn) pauseSoundEffects();
   syncMusicPlayback();
   return soundOn;
 }
@@ -105,6 +121,7 @@ export function toggleSound(): boolean {
 /** Keep app audio out of the way while a full-screen rewarded ad is active. */
 export function pauseAudioForAd(): void {
   adIsActive = true;
+  pauseSoundEffects();
   syncMusicPlayback();
 }
 
@@ -116,23 +133,21 @@ export function resumeAudioAfterAd(): void {
 
 export function setAppAudioActive(active: boolean): void {
   appIsActive = active;
+  if (!appIsActive) pauseSoundEffects();
   syncMusicPlayback();
 }
 
 /** Play the line-clear chime (restarts it if already playing). */
 export function playClear(): void {
-  if (
-    !audioPlaybackSupported ||
-    !soundOn ||
-    !appIsActive ||
-    adIsActive ||
-    !clear
-  )
-    return;
+  const player = clear;
+  if (!canPlaySoundEffects() || !player) return;
+
   try {
-    clear
+    player
       .seekTo(0)
-      .then(() => clear?.play())
+      .then(() => {
+        if (canPlaySoundEffects()) player.play();
+      })
       .catch(() => {});
   } catch (error) {
     reportAudioError("play clear", error);
@@ -141,18 +156,15 @@ export function playClear(): void {
 
 /** Play the stronger simultaneous row+column clear cue. */
 export function playCrossBlast(): void {
-  if (
-    !audioPlaybackSupported ||
-    !soundOn ||
-    !appIsActive ||
-    adIsActive ||
-    !crossBlast
-  )
-    return;
+  const player = crossBlast;
+  if (!canPlaySoundEffects() || !player) return;
+
   try {
-    crossBlast
+    player
       .seekTo(0)
-      .then(() => crossBlast?.play())
+      .then(() => {
+        if (canPlaySoundEffects()) player.play();
+      })
       .catch(() => {});
   } catch (error) {
     reportAudioError("play cross blast", error);

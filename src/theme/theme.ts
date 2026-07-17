@@ -11,7 +11,7 @@ export const palette = {
   surfaceLight: '#262E63',
   surfaceLift: '#303974',
   cellEmpty: '#1A2050',
-  cellEmptyBorder: '#2A3170',
+  cellEmptyBorder: '#6875C7',
 
   // Text
   text: '#FFFFFF',

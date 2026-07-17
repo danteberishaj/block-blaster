@@ -47,6 +47,28 @@ interface Props {
   onSelect: (index: number) => void;
 }
 
+function formatColumns(columns: number[]): string {
+  if (columns.length === 1) return `${columns[0]}`;
+  if (columns.length === 2) return `${columns[0]} and ${columns[1]}`;
+  return `${columns.slice(0, -1).join(", ")}, and ${columns[columns.length - 1]}`;
+}
+
+function describeShapeGeometry(shape: Shape): string {
+  const occupiedCells = new Set(
+    shape.cells.map(([row, col]) => `${row},${col}`),
+  );
+
+  return Array.from({ length: shape.height }, (_, row) => {
+    const columns = Array.from({ length: shape.width }, (__, col) => col)
+      .filter((col) => occupiedCells.has(`${row},${col}`))
+      .map((col) => col + 1);
+
+    if (columns.length === 0) return `row ${row + 1} empty`;
+    const columnLabel = columns.length === 1 ? "column" : "columns";
+    return `row ${row + 1} ${columnLabel} ${formatColumns(columns)}`;
+  }).join("; ");
+}
+
 function DraggableShape(props: Props) {
   const reducedMotion = useReducedMotion();
   const {
@@ -77,6 +99,10 @@ function DraggableShape(props: Props) {
   const w = shape.width;
   const h = shape.height;
   const lift = boardCell * LIFT_FACTOR;
+  const geometryDescription = describeShapeGeometry(shape);
+  const widthLabel = shape.width === 1 ? "column" : "columns";
+  const heightLabel = shape.height === 1 ? "row" : "rows";
+  const placementDescription = playable ? "Can be placed." : "Cannot fit.";
 
   // Map a finger position to the nearest fully-on-board top-left cell.
   // Returns row/col = -1 when the piece is too far off the board (a cancel).
@@ -167,9 +193,7 @@ function DraggableShape(props: Props) {
       <Animated.View
         accessible
         accessibilityRole="button"
-        accessibilityLabel={`Tray shape ${index + 1}, ${shape.cells.length} blocks, ${shape.width} by ${shape.height}, ${
-          playable ? "can be placed" : "cannot fit"
-        }`}
+        accessibilityLabel={`Tray shape ${index + 1}. ${shape.cells.length} blocks, ${shape.width} ${widthLabel} by ${shape.height} ${heightLabel}. Pattern: ${geometryDescription}. ${placementDescription}`}
         accessibilityHint="Activate to select this shape, or drag it onto the board"
         accessibilityState={{ disabled: !enabled, selected }}
         accessibilityActions={[{ name: "activate", label: "Select shape" }]}

@@ -1,7 +1,8 @@
 # Rowflare Android Rewarded-Ad Audit
 
-Read-only adversarial audit of the Android rewarded-ad path (branch `codex/production-ready-ads-ui`).
-Scope: G1–G6 as stated. No files modified.
+Adversarial audit of the Android rewarded-ad path (branch `codex/production-ready-ads-ui`).
+Scope: G1–G6 as stated. F1 was remediated after the initial read-only audit; the
+status below describes the current implementation.
 
 ## Executive summary
 
@@ -22,50 +23,16 @@ The design is notably defensive in two load-bearing spots:
 
 ## Findings (severity-ordered)
 
-### F1 — MEDIUM (G1): `SHOW_TIMEOUT` can kill ads for the whole process session and lock the game UI for up to 5 minutes
+### F1 — REMEDIATED (G1): a show timeout no longer disables ads for the process session
 
-**Files:** `RowflareUnityAdsClient.java:258-271` (showTimeout, `releaseAdOwnership=false`),
-`:375-392` (finish), `:32` (`SHOW_TIMEOUT_MS = 5 * 60_000L`); `src/ads/rewardedAds.ts:84-95`
-(no JS-side timeout); `src/components/GameScreen.tsx:713-717` (`finally` unlocks only when the
-promise settles), `:852-853` (`adBusy`/`interactionLocked`).
+`SHOW_TIMEOUT` now settles fail-closed and releases its identity-keyed owner. The game unlocks,
+audio resumes, and a later request is no longer rejected forever as `UNITY_ADS_BUSY`. A late
+callback still cannot reward because the request's `settled` guard has already won, and its
+`compareAndSet(adOwner, null)` cannot release ownership held by a newer request.
 
-**Scenario (step-by-step):**
-1. `RewardedAd.load` succeeds; handoff clears; `rewardedAd.show(...)` is called and the Unity
-   ad activity comes to the foreground. `showTimeout` (5 min) is the active timeout.
-2. The Unity SDK hangs on screen and never fires `onCompleted`/`onFailed` (SDK bug, wedged ad
-   activity, OS ANR on the ad process, etc.).
-3. On the JS side `await RowflareUnityAds.showRewardedAsync(...)` never returns → the `finally`
-   in `requestRewardedHelper` never runs → `rewardingHelper` stays non-null →
-   `interactionLocked` (GameScreen.tsx:853) keeps the entire game UI disabled and audio paused.
-4. At 5 minutes `showTimeout` fires `finish(..., releaseAdOwnership=false, rewarded=false,
-   "UNITY_ADS_SHOW_TIMEOUT")`. It settles → module rejects → JS `catch` returns
-   `{status:"error"}` → `finally` unlocks the game and resumes audio. **Recoverable — good.**
-5. BUT because `releaseAdOwnership=false`, `ACTIVE_AD_OWNER` is *not* cleared. If the hung
-   `onCompleted`/`onFailed` never subsequently arrives (the same condition that caused the
-   hang), the owner stays held for the rest of the process. Every later `showRewarded` hits
-   `compareAndSet(null, adOwner)` == false → `UNITY_ADS_BUSY` → JS `{status:"error"}`. The
-   watch-ad / revive feature is dead for the remainder of the app session.
-
-**Why the `false` is intentional and the trade-off:** not releasing on `SHOW_TIMEOUT` is the
-correct choice for the *common* case (ad genuinely still on screen — releasing would let a
-second ad start mid-show and break G3). The recovery hook is that a *late* `onCompleted`/
-`onFailed` calls `finish(releaseAdOwnership=true, ...)` whose `compareAndSet(adOwner,null)`
-runs *before* the `settled` check (Client.java:386-387) and reclaims ownership. The leak only
-becomes permanent when that late callback never fires at all.
-
-**Fail-closed?** Yes — no reward is granted, game stays fully playable without ads. This is a
-degraded-ads condition, not a correctness break. That is why it is MEDIUM, not HIGH.
-
-**Confidence:** CONFIRMED-BY-TRACE for the lock-and-recover and the non-release. PLAUSIBLE for
-whether Unity ever actually leaves `onCompleted`/`onFailed` unfired for 5+ minutes — that is an
-SDK runtime property I cannot verify statically.
-
-**Suggested fix (do not implement):** (a) drop `SHOW_TIMEOUT_MS` to a value closer to real ad
-length (e.g. 60–90 s) so a hung show unlocks the UI far sooner; and/or (b) add a bounded
-"reaper": after the show timeout fires, arm a short secondary timer that force-releases
-`ACTIVE_AD_OWNER` for that `adOwner` if no completion has arrived, accepting a small mid-show
-race in exchange for not bricking ads for the session; and/or (c) add a JS-side timeout in
-`showRewardedHelperAd` so the UI never depends on the 5-minute native ceiling.
+The five-minute ceiling remains intentionally conservative for unusually long rewarded
+creatives. Real-device release testing must still wedge a show and verify that the SDK does not
+visually overlap a retry after timeout; this runtime behavior cannot be proven statically.
 
 ---
 
@@ -147,11 +114,10 @@ promise exactly once and grants no reward on failure. Enumerated settle paths, a
 (:207), load exception (:352), handoff timeout (:221), handoff exception (:337),
 runOnUiThread activity-unusable (:244), show timeout (:258), `onCompleted` (:291),
 `onFailed` (:306), show exception (:323). Owner acquired at :174 is always paired with a
-posted timeout before any callback wait. Caveats: F1 (session-long ad death + up-to-5-min UI
-lock on a hung show) and F2 (no JS timeout).
+posted timeout before any callback wait. Remaining caveat: F2 (no independent JS timeout).
 
 **G2 (late native callback can't grant after timeout): HOLDS.** `settled.compareAndSet(false,
-true)` (Client.java:387) makes the first settle win; `SHOW_TIMEOUT`'s `finish` (release=false,
+true)` (Client.java:387) makes the first settle win; `SHOW_TIMEOUT`'s `finish` (release=true,
 rewarded=false) settles and rejects, and the later `onRewarded`+`onCompleted` path returns early
 at :387 without calling the callback. `onRewarded` (:285-287) only sets a flag and never
 settles, so a reward observed after a timeout is dropped. CONFIRMED-BY-TRACE.
@@ -196,10 +162,10 @@ can't verify statically).
 
 ## Device-only verification (cannot be proven statically)
 
-1. **F1 realism / owner leak:** on a real device, force a wedged show (e.g. kill the Unity ad
-   process, or airplane-mode mid-show) and confirm whether `onCompleted`/`onFailed` ever fires.
-   Verify: game UI unlocks at the show timeout, and whether a *subsequent* watch-ad attempt
-   returns `UNITY_ADS_BUSY` (leak) or works (recovered). This decides F1's real-world severity.
+1. **F1 timeout recovery:** on a real device, force a wedged show (e.g. kill the Unity ad
+   process, or airplane-mode mid-show). Verify the game unlocks at timeout, a later request is
+   not permanently busy, and late callbacks cannot reward, overlap a newer request, or release
+   the newer request's owner.
 2. **Activity destruction mid-show (config change):** rotate the device / trigger activity
    recreation while the ad is on screen; confirm the promise settles (via `onFailed`, the
    activity-usable check, or timeout) and the game recovers with audio resumed.

@@ -68,6 +68,7 @@ export default function PrivacySupportModal({ visible, onClose }: Props) {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           accessibilityViewIsModal
+          onAccessibilityEscape={onClose}
         >
           <View style={styles.card}>
             <Text style={styles.title} accessibilityRole="header">
@@ -78,7 +79,9 @@ export default function PrivacySupportModal({ visible, onClose }: Props) {
             </Text>
 
             <View style={styles.section}>
-              <Text style={styles.heading}>Optional rewarded ads</Text>
+              <Text style={styles.heading} accessibilityRole="header">
+                Optional rewarded ads
+              </Text>
               <Text style={styles.body}>
                 Ads only start after you choose Watch Ad. Completing one earns
                 one helper use; skipping it never removes game progress. Each
@@ -87,7 +90,9 @@ export default function PrivacySupportModal({ visible, onClose }: Props) {
             </View>
 
             <View style={styles.section}>
-              <Text style={styles.heading}>Contextual ads</Text>
+              <Text style={styles.heading} accessibilityRole="header">
+                Contextual ads
+              </Text>
               <Text style={styles.body}>
                 {PRODUCT.name} asks the ad provider for non-personalized,
                 contextual ads. The provider may still process device, network,
@@ -96,7 +101,9 @@ export default function PrivacySupportModal({ visible, onClose }: Props) {
             </View>
 
             <View style={styles.section}>
-              <Text style={styles.heading}>Saved on this device</Text>
+              <Text style={styles.heading} accessibilityRole="header">
+                Saved on this device
+              </Text>
               <Text style={styles.body}>
                 Your active run, high score, sound preference, and tutorial
                 status are stored locally. There is no account or cloud save.

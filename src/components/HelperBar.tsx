@@ -34,6 +34,9 @@ interface Props {
 type HelperTone = "blue" | "red" | "gold";
 type HelperIcon = "shuffle" | "break" | "hint";
 
+const MAX_HELPER_FONT_SIZE_MULTIPLIER = 1.2;
+const MIN_HELPER_FONT_SCALE = 0.8;
+
 function HelperButton({
   iconName,
   label,
@@ -85,6 +88,23 @@ function HelperButton({
       : tone === "red"
         ? palette.danger
         : palette.gold;
+  const icon = (
+    <View
+      style={[styles.iconDisc, compact && styles.iconDiscCompact, toneStyle]}
+    >
+      {loading ? (
+        <ActivityIndicator size="small" color={toneColor} />
+      ) : (
+        <GameIcon
+          name={iconName}
+          size={compact ? 14 : 16}
+          color={toneColor}
+          strokeWidth={3}
+        />
+      )}
+    </View>
+  );
+
   return (
     <Pressable
       onPress={exhausted ? () => onWatchAd(type) : onPress}
@@ -114,41 +134,58 @@ function HelperButton({
         { opacity: pressed ? 0.78 : 1 },
       ]}
     >
-      <View
-        style={[styles.iconDisc, compact && styles.iconDiscCompact, toneStyle]}
-      >
-        {loading ? (
-          <ActivityIndicator size="small" color={toneColor} />
-        ) : (
-          <GameIcon
-            name={iconName}
-            size={compact ? 14 : 16}
-            color={toneColor}
-            strokeWidth={3}
-          />
-        )}
-      </View>
-      <Text
-        style={[
-          styles.label,
-          compact && styles.labelCompact,
-          rewardAvailable && styles.rewardLabel,
-        ]}
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.82}
-      >
-        {loading ? "Loading…" : rewardAvailable ? "Watch Ad" : label}
-      </Text>
-      <Text
-        style={[
-          styles.count,
-          compact && styles.countCompact,
-          rewardAvailable && styles.rewardCount,
-        ]}
-      >
-        {rewardAvailable ? "+1" : rewardCapReached ? "Used" : `x${count}`}
-      </Text>
+      {rewardAvailable ? (
+        <View style={styles.rewardContent}>
+          <View
+            style={[
+              styles.rewardIdentity,
+              compact && styles.rewardIdentityCompact,
+            ]}
+          >
+            {icon}
+            <Text
+              style={[styles.label, compact && styles.labelCompact]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={MIN_HELPER_FONT_SCALE}
+              maxFontSizeMultiplier={MAX_HELPER_FONT_SIZE_MULTIPLIER}
+            >
+              {label}
+            </Text>
+          </View>
+          <Text
+            style={styles.rewardAction}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={MIN_HELPER_FONT_SCALE}
+            maxFontSizeMultiplier={MAX_HELPER_FONT_SIZE_MULTIPLIER}
+          >
+            {loading ? "Loading…" : "Watch Ad · +1"}
+          </Text>
+        </View>
+      ) : (
+        <>
+          {icon}
+          <Text
+            style={[styles.label, compact && styles.labelCompact]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={MIN_HELPER_FONT_SCALE}
+            maxFontSizeMultiplier={MAX_HELPER_FONT_SIZE_MULTIPLIER}
+          >
+            {loading ? "Loading…" : label}
+          </Text>
+          <Text
+            style={[styles.count, compact && styles.countCompact]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={MIN_HELPER_FONT_SCALE}
+            maxFontSizeMultiplier={MAX_HELPER_FONT_SIZE_MULTIPLIER}
+          >
+            {rewardCapReached ? "Used" : `x${count}`}
+          </Text>
+        </>
+      )}
     </Pressable>
   );
 }
@@ -225,6 +262,7 @@ const styles = StyleSheet.create({
   },
   btn: {
     flex: 1,
+    minWidth: 0,
     minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
@@ -236,6 +274,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 9,
     borderWidth: 1,
     borderColor: palette.surfaceLight,
+    overflow: "hidden",
   },
   btnActive: {
     borderColor: palette.danger,
@@ -249,6 +288,7 @@ const styles = StyleSheet.create({
   btnReward: {
     backgroundColor: "rgba(38,46,99,0.9)",
     borderColor: "rgba(72,229,160,0.48)",
+    paddingVertical: 5,
   },
   btnDisabled: {
     opacity: 0.48,
@@ -275,26 +315,48 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,210,90,0.22)",
   },
   label: {
+    minWidth: 0,
+    flexShrink: 1,
     color: palette.text,
     fontSize: 12.5,
     fontWeight: "800",
   },
   labelCompact: {
-    fontSize: 10.5,
+    fontSize: 11.5,
   },
   count: {
+    minWidth: 0,
+    flexShrink: 1,
     color: palette.textDim,
     fontSize: 11,
     fontWeight: "900",
   },
   countCompact: {
-    fontSize: 9,
+    fontSize: 11,
   },
-  rewardLabel: {
-    color: palette.text,
+  rewardContent: {
+    width: "100%",
+    minWidth: 0,
+    alignItems: "center",
   },
-  rewardCount: {
+  rewardIdentity: {
+    width: "100%",
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  rewardIdentityCompact: {
+    gap: 2,
+  },
+  rewardAction: {
+    width: "100%",
     color: palette.success,
+    fontSize: 11.5,
+    fontWeight: "900",
+    marginTop: -2,
+    textAlign: "center",
   },
 });
 

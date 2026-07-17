@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
+  AccessibilityInfo,
   Modal,
   Pressable,
   ScrollView,
@@ -48,7 +49,7 @@ const STEPS = [
   },
   {
     title: "Use your helpers",
-    body: "Shuffle for fresh pieces, Break to smash a single block, or get a Hint — three of each per game.",
+    body: "Shuffle for fresh pieces, Break one block, or get a Hint. You start with three of each; after uses run out, each helper can earn one ad-funded +1 use per run.",
   },
 ] as const;
 
@@ -358,6 +359,15 @@ function Tutorial({ visible, onDone }: Props) {
   const [step, setStep] = useState(0);
   const isLast = step === STEPS.length - 1;
 
+  useEffect(() => {
+    if (!visible) return;
+
+    const currentStep = STEPS[step];
+    AccessibilityInfo.announceForAccessibility(
+      `Tutorial step ${step + 1} of ${STEPS.length}. ${currentStep.title}. ${currentStep.body}`,
+    );
+  }, [step, visible]);
+
   const next = () => {
     if (isLast) {
       setStep(0);
@@ -393,6 +403,7 @@ function Tutorial({ visible, onDone }: Props) {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           accessibilityViewIsModal
+          onAccessibilityEscape={skip}
         >
           <Animated.View
             entering={reducedMotion ? undefined : FadeIn.duration(220)}
@@ -441,7 +452,7 @@ function Tutorial({ visible, onDone }: Props) {
               onPress={next}
               accessibilityRole="button"
               accessibilityLabel={
-                isLast ? "Finish tutorial and play" : "Next tutorial step"
+                isLast ? "Finish tutorial" : "Next tutorial step"
               }
               style={({ pressed }) => [
                 { opacity: pressed ? 0.85 : 1, width: "100%" },
@@ -454,7 +465,7 @@ function Tutorial({ visible, onDone }: Props) {
                 style={styles.button}
               >
                 <Text style={styles.buttonText}>
-                  {isLast ? "Let's play!" : "Next"}
+                  {isLast ? "Done" : "Next"}
                 </Text>
               </LinearGradient>
             </Pressable>

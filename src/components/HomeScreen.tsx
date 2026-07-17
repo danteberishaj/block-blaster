@@ -213,6 +213,7 @@ export default function HomeScreen({ onPlay }: Props) {
           { paddingTop: topPad, paddingBottom: bottomPad },
         ]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         aria-hidden={modalOpen}
         accessibilityElementsHidden={modalOpen}
         importantForAccessibility={modalOpen ? "no-hide-descendants" : "auto"}
@@ -352,7 +353,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   hero: {
-    flex: 1,
+    flexGrow: 1,
     alignItems: "center",
     justifyContent: "center",
   },

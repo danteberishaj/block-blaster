@@ -60,6 +60,10 @@ function GameOverModal({
   const reviveWithAd = shuffleUses <= 0;
   const canRevive = shuffleUses > 0 || rewardedAdsAvailable;
 
+  const handleClose = () => {
+    if (!reviveLoading) onHome();
+  };
+
   useEffect(() => {
     if (visible) {
       scale.value = reducedMotion
@@ -83,9 +87,7 @@ function GameOverModal({
       transparent
       animationType="fade"
       statusBarTranslucent
-      onRequestClose={() => {
-        if (!reviveLoading) onHome();
-      }}
+      onRequestClose={handleClose}
     >
       <SafeAreaView
         style={styles.backdrop}
@@ -96,6 +98,7 @@ function GameOverModal({
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           accessibilityViewIsModal
+          onAccessibilityEscape={handleClose}
         >
           <Animated.View style={[styles.card, cardStyle]}>
             <Text style={styles.title} accessibilityRole="header">
@@ -369,6 +372,8 @@ const styles = StyleSheet.create({
     color: palette.bgDeep,
   },
   homeButton: {
+    minHeight: 48,
+    justifyContent: "center",
     marginTop: spacing.sm,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,

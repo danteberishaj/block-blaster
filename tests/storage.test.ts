@@ -83,11 +83,14 @@ function createThrowingKV(): StorageKV {
   };
 }
 
-test("getSavedRun: corrupt JSON → null and does not crash", async () => {
+test("getSavedRun: corrupt JSON → null and removes the saved run", async () => {
   const kv = createFakeKV({ [RUN_KEY]: "{ not valid json" });
   const core = createStorageCore(kv);
   const result = await core.getSavedRun();
+
   assert.equal(result, null);
+  assert.deepEqual(kv.removed, [RUN_KEY]);
+  assert.equal(kv.store.has(RUN_KEY), false);
 });
 
 test("getSavedRun: valid JSON but invalid payload → null and removeItem called for run key", async () => {

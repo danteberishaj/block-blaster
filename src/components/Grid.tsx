@@ -34,6 +34,30 @@ interface Props {
 const PAD = 6;
 const BORDER = 2;
 
+function formatColumns(columns: number[]): string {
+  if (columns.length === 1) return `${columns[0]}`;
+  if (columns.length === 2) return `${columns[0]} and ${columns[1]}`;
+  return `${columns.slice(0, -1).join(", ")}, and ${columns[columns.length - 1]}`;
+}
+
+function describeRow(row: CellValue[], rowIndex: number): string {
+  const occupiedColumns: number[] = [];
+  const emptyColumns: number[] = [];
+
+  row.forEach((value, col) => {
+    (value === null ? emptyColumns : occupiedColumns).push(col + 1);
+  });
+
+  if (occupiedColumns.length === 0) {
+    return `Row ${rowIndex + 1}, all ${row.length} cells empty.`;
+  }
+  if (emptyColumns.length === 0) {
+    return `Row ${rowIndex + 1}, all ${row.length} cells occupied.`;
+  }
+
+  return `Row ${rowIndex + 1}, occupied columns ${formatColumns(occupiedColumns)}; empty columns ${formatColumns(emptyColumns)}.`;
+}
+
 interface GridCellVisualProps {
   cellSize: number;
   value: CellValue;
@@ -113,6 +137,12 @@ function Grid({
 }: Props) {
   const ref = useRef<View>(null);
   const placementMode = selectedShape !== null;
+  const rowSummariesEnabled = !bombArmed && !placementMode;
+  const occupiedCount = board.reduce<number>(
+    (count, row) => count + row.filter((value) => value !== null).length,
+    0,
+  );
+  const boardSummary = `Board, ${BOARD_SIZE} rows by ${BOARD_SIZE} columns, ${occupiedCount} occupied and ${BOARD_SIZE * BOARD_SIZE - occupiedCount} empty.`;
 
   const previewKey = new Set(
     (preview?.cells ?? []).map(([row, col]) => `${row},${col}`),
@@ -159,7 +189,18 @@ function Grid({
       <View pointerEvents="none" style={styles.innerGlow} />
 
       {Array.from({ length: BOARD_SIZE }).map((_, row) => (
-        <View key={row} style={styles.row}>
+        <View
+          key={row}
+          accessible={rowSummariesEnabled}
+          accessibilityRole={row === 0 ? "summary" : "text"}
+          accessibilityLabel={`${row === 0 ? `${boardSummary} ` : ""}${describeRow(board[row], row)}`}
+          accessibilityHint={
+            row === 0 && rowSummariesEnabled
+              ? "Swipe right to inspect each remaining board row"
+              : undefined
+          }
+          style={styles.row}
+        >
           {Array.from({ length: BOARD_SIZE }).map((__, col) => {
             const value = board[row][col];
             const key = `${row},${col}`;

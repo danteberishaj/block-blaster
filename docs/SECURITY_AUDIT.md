@@ -1,6 +1,6 @@
 # Dependency audit record
 
-Last reviewed: 2026-07-16
+Last reviewed: 2026-07-17
 
 ## JavaScript dependency graph
 

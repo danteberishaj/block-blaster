@@ -16,7 +16,7 @@ jobs:
       - name: Run production checks
         run: npm run verify
       - name: Verify Expo dependency and configuration health
-        run: npx expo-doctor@latest
+        run: npm run doctor
       - name: Block high or critical production advisories
         run: npm audit --omit=dev --audit-level=high
 
