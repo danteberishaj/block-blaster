@@ -13,6 +13,8 @@ jobs:
     steps:
       - uses: eas/checkout
       - uses: eas/install_node_modules
+      - name: Validate production ads and public URLs
+        run: npm run release:preflight
       - name: Run production checks
         run: npm run verify
       - name: Verify Expo dependency and configuration health

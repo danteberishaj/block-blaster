@@ -23,13 +23,14 @@ function BurstTile({
   y,
   size,
   variant,
+  reducedMotion,
 }: {
   x: number;
   y: number;
   size: number;
   variant?: Burst["variant"];
+  reducedMotion: boolean;
 }) {
-  const reducedMotion = useReducedMotion();
   const p = useSharedValue(0);
   useEffect(() => {
     p.value = withTiming(1, {
@@ -64,8 +65,13 @@ function BurstTile({
   );
 }
 
-function CrossShock({ burst }: { burst: Burst }) {
-  const reducedMotion = useReducedMotion();
+function CrossShock({
+  burst,
+  reducedMotion,
+}: {
+  burst: Burst;
+  reducedMotion: boolean;
+}) {
   const p = useSharedValue(0);
   useEffect(() => {
     p.value = withTiming(1, { duration: reducedMotion ? 200 : 520 });
@@ -115,7 +121,9 @@ export default function ClearBurst({
 
   return (
     <>
-      {burst.variant === "cross" && <CrossShock burst={burst} />}
+      {burst.variant === "cross" && (
+        <CrossShock burst={burst} reducedMotion={reducedMotion} />
+      )}
       {burst.cells.map(([r, c], i) => (
         <BurstTile
           key={i}
@@ -123,6 +131,7 @@ export default function ClearBurst({
           y={burst.gridY + r * burst.cell + 2}
           size={burst.cell - 4}
           variant={burst.variant}
+          reducedMotion={reducedMotion}
         />
       ))}
     </>

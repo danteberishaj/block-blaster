@@ -430,8 +430,10 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
   },
   howButton: {
+    minHeight: 48,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
+    justifyContent: "center",
   },
   howText: {
     color: palette.textDim,
@@ -439,11 +441,13 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   privacyButton: {
+    minHeight: 48,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.lg,
+    justifyContent: "center",
   },
   privacyText: {
-    color: palette.textMuted,
+    color: palette.textDim,
     fontSize: 13,
     fontWeight: "700",
   },
