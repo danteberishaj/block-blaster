@@ -112,21 +112,18 @@ test("blank/whitespace-only adUnitId → unavailable and canShow false", async (
   assert.equal(core.canShowRewardedHelperAds(), false);
 });
 
-test("privacy configure resolving false → error, and init promise reset so retry re-initializes", async () => {
-  const nativeModule = createMockNativeModule({ privacyResult: false });
+test("init calls initializeAsync WITHOUT any preceding configurePrivacyAsync", async () => {
+  const nativeModule = createMockNativeModule({ showResult: true });
   const core = createRewardedAdsCore(baseEnv({ nativeModule }));
 
-  const first = await core.showRewardedHelperAd("shuffle");
-  assert.deepEqual(first, {
-    status: "error",
-    message: "The ad service is unavailable right now. Please try again.",
-  });
+  const result = await core.showRewardedHelperAd("shuffle");
+  assert.deepEqual(result, { status: "rewarded" });
 
-  const second = await core.showRewardedHelperAd("shuffle");
-  assert.equal(second.status, "error");
-
-  // Retry must re-run initialization (promise was reset to null on failure).
-  assert.equal(nativeModule.configurePrivacyCalls.length, 2);
+  // Rowflare makes no privacy declarations by default: init must go straight to
+  // initializeAsync with no configurePrivacyAsync call ahead of it.
+  assert.equal(nativeModule.configurePrivacyCalls.length, 0);
+  assert.equal(nativeModule.initializeCalls.length, 1);
+  assert.deepEqual(nativeModule.initializeCalls[0], ["appkey-123", false]);
 });
 
 test("initializeAsync rejecting → error, promise reset, later success works and memoizes", async () => {
@@ -166,9 +163,9 @@ test("initializeAsync resolving false → error, promise reset for retry", async
   assert.equal(first.status, "error");
   const second = await core.showRewardedHelperAd("hint");
   assert.equal(second.status, "error");
-  // Both privacy + initialize retried.
-  assert.equal(nativeModule.configurePrivacyCalls.length, 2);
+  // Init retried (promise reset to null on false); still no privacy call.
   assert.equal(nativeModule.initializeCalls.length, 2);
+  assert.equal(nativeModule.configurePrivacyCalls.length, 0);
 });
 
 test("showRewardedAsync resolving true → rewarded (exactly one show call)", async () => {
@@ -210,13 +207,13 @@ test("showRewardedAsync rejecting → error", async () => {
   assert.equal(nativeModule.showCalls.length, 1);
 });
 
-test("privacy configured with (false, true, true) — compliance-critical constant", async () => {
+test("no privacy declaration by default; isDev forwarded as initialize testMode", async () => {
   const nativeModule = createMockNativeModule({ showResult: true });
   const core = createRewardedAdsCore(baseEnv({ nativeModule, isDev: true }));
 
   await core.showRewardedHelperAd("shuffle");
-  assert.equal(nativeModule.configurePrivacyCalls.length, 1);
-  assert.deepEqual(nativeModule.configurePrivacyCalls[0], [false, true, true]);
+  // Default posture makes no privacy declarations (a future CMP may opt in).
+  assert.equal(nativeModule.configurePrivacyCalls.length, 0);
   // isDev is forwarded as the initialize testMode flag.
   assert.deepEqual(nativeModule.initializeCalls[0], ["appkey-123", true]);
 });

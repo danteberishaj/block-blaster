@@ -49,10 +49,16 @@ not replace a failed gate with an assumption.
       environment. Confirm the build is not serving test ads (LevelPlay test ads
       come from dashboard-registered test devices, not an SDK flag).
 - [ ] Verify LevelPlay privacy, regional consent/opt-out, age designation,
-      ad-content filters, and data-processing terms with counsel. The app calls
-      `setGDPRConsent(false)`, `setCCPA(true)` (do-not-sell), and
-      `is_deviceid_optout` for contextual/non-personalized ads; that does not
-      remove every regional notice or consent obligation.
+      ad-content filters, and data-processing terms with counsel. The app makes
+      **no privacy declarations by default** — it does not call
+      `setGDPRConsent`, `setCCPA`, or `is_deviceid_optout` — so LevelPlay runs in
+      its default posture and the advertising ID is available for dashboard
+      test-device matching and fill. The native API
+      (`configurePrivacyAsync` / `configurePrivacy`) still supports these
+      declarations for a future consent-management platform to call explicitly.
+      Regional consent obligations (GDPR/CCPA notices, do-not-sell, and any
+      contextual/non-personalized requirements) remain to be reviewed with
+      counsel and wired into a CMP before those markets.
 - [ ] Download the complete current authorized-seller list from the LevelPlay
       App-ads.txt dashboard, add `ownerdomain`, host it at the exact root domain used
       by the store listings, and verify it in the dashboard. Recheck it monthly

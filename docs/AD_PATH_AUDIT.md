@@ -8,6 +8,18 @@
 > 10-second close grace still bounds the skipped-ad response; real network/device
 > callback ordering remains a mandatory §7 release gate.
 
+> **2026-07-18 — privacy-posture correction (supersedes G6 below).** The
+> mandatory privacy-before-init coupling described in the G6 verdict has been
+> removed. The app no longer calls `configurePrivacyAsync(false, true, true)`
+> during initialization, and the native client no longer refuses init with
+> `LEVELPLAY_PRIVACY_NOT_CONFIGURED`. Rowflare now makes **no privacy
+> declarations by default** so the advertising ID stays available for LevelPlay
+> dashboard test-device matching and fill; the `configurePrivacy(Async)` API is
+> retained as opt-in for a future consent-management platform. The G6 trace
+> below (privacy `(false, true, true)` chained before init, "Init hard-refuses
+> if privacy is unset") is preserved as historical record and no longer reflects
+> the shipped flow.
+
 Adversarial audit of the Android rewarded-ad path (branch `codex/production-ready-ads-ui`).
 Scope: G1–G6 as stated. F1 was remediated after the initial read-only audit; the
 status below describes the current implementation.

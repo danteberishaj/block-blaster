@@ -37,7 +37,6 @@ public final class RowflareLevelPlayAdsClient {
   private static final AtomicReference<Object> ACTIVE_AD_OWNER = new AtomicReference<>();
   private static final List<InitializationCallback> INITIALIZATION_CALLBACKS = new ArrayList<>();
 
-  private static boolean privacyConfigured = false;
   private static boolean initialized = false;
   private static boolean initializing = false;
   private static boolean initializationTimedOut = false;
@@ -53,6 +52,9 @@ public final class RowflareLevelPlayAdsClient {
     void onComplete(boolean rewarded, String errorCode, String errorMessage);
   }
 
+  // Opt-in privacy declarations for a future consent-management flow. Rowflare
+  // makes no privacy declarations by default; a CMP can call this explicitly to
+  // set GDPR consent, CCPA opt-out, and the device-id opt-out metadata.
   public static void configurePrivacy(
       boolean userConsent,
       boolean userOptOut,
@@ -61,7 +63,6 @@ public final class RowflareLevelPlayAdsClient {
     LevelPlayPrivacySettings.setGDPRConsent(userConsent);
     LevelPlayPrivacySettings.setCCPA(userOptOut);
     LevelPlay.setMetaData("is_deviceid_optout", nonBehavioral ? "true" : "false");
-    privacyConfigured = true;
   }
 
   public static void initialize(
@@ -72,13 +73,6 @@ public final class RowflareLevelPlayAdsClient {
   ) {
     // testMode is accepted for API compatibility; LevelPlay serves test ads to
     // devices registered on the dashboard, not through an SDK flag.
-    if (!privacyConfigured) {
-      callback.onComplete(
-          "LEVELPLAY_PRIVACY_NOT_CONFIGURED",
-          "LevelPlay privacy settings must be configured before initialization."
-      );
-      return;
-    }
     if (context == null) {
       callback.onComplete("LEVELPLAY_NO_CONTEXT", "No Android context is available.");
       return;

@@ -43,3 +43,6 @@ yarn-error.*
 /ios
 /android
 /modules/*/android/build/
+
+# release upload keystore + secrets — NEVER commit, back up externally
+/credentials/
