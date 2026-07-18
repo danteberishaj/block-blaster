@@ -1,14 +1,24 @@
 # Rowflare Android Rewarded-Ad Audit
 
-> **2026-07-17 — partially superseded.** This audit examined the direct Unity Ads
-> client (`RowflareUnityAdsClient`), since replaced by the LevelPlay client
-> (`modules/levelplay-ads/.../RowflareLevelPlayAdsClient.java`). The new client
-> preserves the audited state machine — identity-keyed ad owner, single `settled`
-> settlement, load/handoff/show timeouts — and adds a 2-second reward-grace
-> window after `onAdClosed` for late `onAdRewarded` callbacks. The G1–G6 trace
-> arguments transfer structurally but have not been re-run against the LevelPlay
-> SDK's real callback behavior; the §7 device matrix in RELEASE_CHECKLIST.md is
-> the closing gate.
+> **2026-07-18 — LevelPlay follow-up.** The direct Unity Ads client was replaced
+> by `RowflareLevelPlayAdsClient`. A follow-up static audit added the Unity Ads
+> adapter/SDK to the LevelPlay build, made stale initialization success
+> authoritative, retained ad ownership while an uncancellable show is pending,
+> and treats `onAdRewarded` as authoritative before or after `onAdClosed`. A
+> 10-second close grace still bounds the skipped-ad response; real network/device
+> callback ordering remains a mandatory §7 release gate.
+
+> **2026-07-18 — privacy-posture correction (supersedes G6 below).** The
+> mandatory privacy-before-init coupling described in the G6 verdict has been
+> removed. The app no longer calls `configurePrivacyAsync(false, true, true)`
+> during initialization, and the native client no longer refuses init with
+> `LEVELPLAY_PRIVACY_NOT_CONFIGURED`. Rowflare now makes **no privacy
+> declarations by default** so the advertising ID stays available for LevelPlay
+> dashboard test-device matching and fill; the `configurePrivacy(Async)` API is
+> retained as opt-in for a future consent-management platform. The G6 trace
+> below (privacy `(false, true, true)` chained before init, "Init hard-refuses
+> if privacy is unset") is preserved as historical record and no longer reflects
+> the shipped flow.
 
 Adversarial audit of the Android rewarded-ad path (branch `codex/production-ready-ads-ui`).
 Scope: G1–G6 as stated. F1 was remediated after the initial read-only audit; the

@@ -45,6 +45,7 @@
     "typecheck": "tsc --noEmit",
     "balance:tray": "node scripts/tray-balance-check.mjs",
     "check:node": "node scripts/check-node.mjs",
+    "release:preflight": "node scripts/release-preflight.mjs",
     "doctor": "expo-doctor",
     "test": "npm run check:node && node --import tsx --test tests/*.test.ts",
     "export:check": "expo export --platform all --output-dir dist",

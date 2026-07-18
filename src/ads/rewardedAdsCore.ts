@@ -7,6 +7,9 @@ export type RewardedAdResult =
   | { status: "error"; message: string };
 
 export interface RewardedAdsNativeModule {
+  // Opt-in privacy declarations for a future consent-management flow. Rowflare
+  // makes no privacy declarations by default, so initialization does not call
+  // this; a CMP can invoke it explicitly to set GDPR/CCPA/device-id opt-out.
   configurePrivacyAsync(
     userConsent: boolean,
     userOptOut: boolean,
@@ -50,20 +53,18 @@ export function createRewardedAdsCore(env: RewardedAdsEnv): RewardedAdsCore {
     if (!ads || !appKey) return false;
 
     if (!initializationPromise) {
+      // Rowflare makes no privacy declarations by default. Initialization goes
+      // straight to initializeAsync; a future CMP may call configurePrivacyAsync
+      // explicitly before this runs.
       initializationPromise = ads
-        .configurePrivacyAsync(false, true, true)
-        .then((privacyConfigured) => {
-          if (!privacyConfigured) return false;
-          return ads.initializeAsync(appKey, isDev);
-        })
+        .initializeAsync(appKey, isDev)
         .then((initialized) => {
           if (!initialized) initializationPromise = null;
           return initialized;
         })
         .catch((error) => {
           initializationPromise = null;
-          if (isDev)
-            console.warn("LevelPlay privacy or initialization failed.", error);
+          if (isDev) console.warn("LevelPlay initialization failed.", error);
           return false;
         });
     }

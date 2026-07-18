@@ -28,19 +28,18 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class RowflareLevelPlayAdsClient {
   private static final long INITIALIZATION_TIMEOUT_MS = 15_000L;
   private static final long LOAD_TIMEOUT_MS = 20_000L;
-  private static final long SHOW_HANDOFF_TIMEOUT_MS = 10_000L;
   private static final long SHOW_TIMEOUT_MS = 5 * 60_000L;
   // LevelPlay documents onAdRewarded before onAdClosed, but mediated networks can
   // deliver the reward a beat late; a closed-without-reward show waits this long
   // for a trailing reward before settling as skipped.
-  private static final long REWARD_GRACE_MS = 2_000L;
+  private static final long REWARD_GRACE_MS = 10_000L;
   private static final Object INITIALIZATION_LOCK = new Object();
   private static final AtomicReference<Object> ACTIVE_AD_OWNER = new AtomicReference<>();
   private static final List<InitializationCallback> INITIALIZATION_CALLBACKS = new ArrayList<>();
 
-  private static boolean privacyConfigured = false;
   private static boolean initialized = false;
   private static boolean initializing = false;
+  private static boolean initializationTimedOut = false;
   private static int initializationAttempt = 0;
 
   private RowflareLevelPlayAdsClient() {}
@@ -53,6 +52,9 @@ public final class RowflareLevelPlayAdsClient {
     void onComplete(boolean rewarded, String errorCode, String errorMessage);
   }
 
+  // Opt-in privacy declarations for a future consent-management flow. Rowflare
+  // makes no privacy declarations by default; a CMP can call this explicitly to
+  // set GDPR consent, CCPA opt-out, and the device-id opt-out metadata.
   public static void configurePrivacy(
       boolean userConsent,
       boolean userOptOut,
@@ -61,7 +63,6 @@ public final class RowflareLevelPlayAdsClient {
     LevelPlayPrivacySettings.setGDPRConsent(userConsent);
     LevelPlayPrivacySettings.setCCPA(userOptOut);
     LevelPlay.setMetaData("is_deviceid_optout", nonBehavioral ? "true" : "false");
-    privacyConfigured = true;
   }
 
   public static void initialize(
@@ -72,13 +73,6 @@ public final class RowflareLevelPlayAdsClient {
   ) {
     // testMode is accepted for API compatibility; LevelPlay serves test ads to
     // devices registered on the dashboard, not through an SDK flag.
-    if (!privacyConfigured) {
-      callback.onComplete(
-          "LEVELPLAY_PRIVACY_NOT_CONFIGURED",
-          "LevelPlay privacy settings must be configured before initialization."
-      );
-      return;
-    }
     if (context == null) {
       callback.onComplete("LEVELPLAY_NO_CONTEXT", "No Android context is available.");
       return;
@@ -95,6 +89,17 @@ public final class RowflareLevelPlayAdsClient {
         return;
       }
 
+      // LevelPlay.init cannot be cancelled. After our caller-facing timeout,
+      // fail later callers quickly until the original SDK callback arrives;
+      // never start overlapping process-global initialization calls.
+      if (initializing && initializationTimedOut) {
+        callback.onComplete(
+            "LEVELPLAY_INIT_STILL_PENDING",
+            "LevelPlay initialization is still pending. Please try again later."
+        );
+        return;
+      }
+
       INITIALIZATION_CALLBACKS.add(callback);
       if (initializing) return;
 
@@ -103,12 +108,7 @@ public final class RowflareLevelPlayAdsClient {
     }
 
     Handler mainHandler = new Handler(Looper.getMainLooper());
-    Runnable initializationTimeout = () -> completeInitialization(
-        attempt,
-        false,
-        "LEVELPLAY_INIT_TIMEOUT",
-        "LevelPlay took too long to initialize."
-    );
+    Runnable initializationTimeout = () -> timeoutInitialization(attempt);
     mainHandler.postDelayed(initializationTimeout, INITIALIZATION_TIMEOUT_MS);
 
     LevelPlayInitRequest initRequest =
@@ -146,6 +146,23 @@ public final class RowflareLevelPlayAdsClient {
     }
   }
 
+  private static void timeoutInitialization(int attempt) {
+    List<InitializationCallback> callbacks;
+    synchronized (INITIALIZATION_LOCK) {
+      if (attempt != initializationAttempt || !initializing) return;
+      initializationTimedOut = true;
+      callbacks = new ArrayList<>(INITIALIZATION_CALLBACKS);
+      INITIALIZATION_CALLBACKS.clear();
+    }
+
+    for (InitializationCallback pendingCallback : callbacks) {
+      pendingCallback.onComplete(
+          "LEVELPLAY_INIT_TIMEOUT",
+          "LevelPlay took too long to initialize."
+      );
+    }
+  }
+
   private static void completeInitialization(
       int attempt,
       boolean success,
@@ -155,14 +172,24 @@ public final class RowflareLevelPlayAdsClient {
     List<InitializationCallback> callbacks;
     synchronized (INITIALIZATION_LOCK) {
       if (attempt != initializationAttempt) {
-        if (success) initialized = true;
-        return;
-      }
+        if (!success || initialized) return;
 
-      initialized = success;
-      initializing = false;
-      callbacks = new ArrayList<>(INITIALIZATION_CALLBACKS);
-      INITIALIZATION_CALLBACKS.clear();
+        // LevelPlay initialization is process-global and cannot be cancelled.
+        // If an older timed-out attempt succeeds while a retry is pending,
+        // success wins and invalidates the newer attempt's eventual callback.
+        initialized = true;
+        initializing = false;
+        initializationTimedOut = false;
+        initializationAttempt++;
+        callbacks = new ArrayList<>(INITIALIZATION_CALLBACKS);
+        INITIALIZATION_CALLBACKS.clear();
+      } else {
+        initialized = success;
+        initializing = false;
+        initializationTimedOut = false;
+        callbacks = new ArrayList<>(INITIALIZATION_CALLBACKS);
+        INITIALIZATION_CALLBACKS.clear();
+      }
     }
 
     for (InitializationCallback pendingCallback : callbacks) {
@@ -201,6 +228,7 @@ public final class RowflareLevelPlayAdsClient {
     Handler mainHandler = new Handler(Looper.getMainLooper());
     AtomicReference<Runnable> activeTimeout = new AtomicReference<>();
     AtomicReference<Runnable> pendingRewardGrace = new AtomicReference<>();
+    Runnable ownerReleaseTimeout = () -> ACTIVE_AD_OWNER.compareAndSet(adOwner, null);
 
     Runnable loadTimeout = () -> finish(
         mainHandler,
@@ -224,7 +252,7 @@ public final class RowflareLevelPlayAdsClient {
         public void onAdLoaded(LevelPlayAdInfo adInfo) {
           if (settled.get()) return;
 
-          Runnable handoffTimeout = () -> finish(
+          Runnable showCallbackTimeout = () -> finish(
               mainHandler,
               activeTimeout,
               settled,
@@ -232,12 +260,15 @@ public final class RowflareLevelPlayAdsClient {
               true,
               callback,
               false,
-              "LEVELPLAY_SHOW_HANDOFF_TIMEOUT",
-              "The rewarded ad could not start in time."
+              "LEVELPLAY_SHOW_TIMEOUT",
+              "The rewarded ad did not finish in time."
           );
-          activeTimeout.set(handoffTimeout);
+          activeTimeout.set(showCallbackTimeout);
           mainHandler.removeCallbacks(loadTimeout);
-          mainHandler.postDelayed(handoffTimeout, SHOW_HANDOFF_TIMEOUT_MS);
+          // showAd has no cancellation API. Keep ownership until the SDK
+          // confirms display failure/close or the full show timeout expires,
+          // so a delayed ad cannot overlap a retry.
+          mainHandler.postDelayed(showCallbackTimeout, SHOW_TIMEOUT_MS);
 
           activity.runOnUiThread(() -> {
             if (settled.get()) return;
@@ -332,17 +363,25 @@ public final class RowflareLevelPlayAdsClient {
           Runnable grace = pendingRewardGrace.getAndSet(null);
           if (grace != null) {
             mainHandler.removeCallbacks(grace);
-            finish(
-                mainHandler,
-                activeTimeout,
-                settled,
-                adOwner,
-                true,
-                callback,
-                true,
-                null,
-                null
-            );
+          }
+          // Unity documents reward and close as asynchronous. The reward
+          // callback is authoritative whether it arrives before or after close.
+          finish(
+              mainHandler,
+              activeTimeout,
+              settled,
+              adOwner,
+              grace != null,
+              callback,
+              true,
+              null,
+              null
+          );
+          if (grace == null && settled.get()) {
+            // The reward promise can resolve before close. Preserve exclusivity
+            // while the full-screen ad is present, but never wedge the process
+            // if a mediated network omits its close callback.
+            mainHandler.postDelayed(ownerReleaseTimeout, SHOW_TIMEOUT_MS);
           }
         }
 
@@ -351,7 +390,11 @@ public final class RowflareLevelPlayAdsClient {
 
         @Override
         public void onAdClosed(LevelPlayAdInfo adInfo) {
-          if (settled.get()) return;
+          mainHandler.removeCallbacks(ownerReleaseTimeout);
+          if (settled.get()) {
+            ACTIVE_AD_OWNER.compareAndSet(adOwner, null);
+            return;
+          }
 
           if (rewardEarned.get()) {
             finish(

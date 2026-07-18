@@ -49,10 +49,16 @@ not replace a failed gate with an assumption.
       environment. Confirm the build is not serving test ads (LevelPlay test ads
       come from dashboard-registered test devices, not an SDK flag).
 - [ ] Verify LevelPlay privacy, regional consent/opt-out, age designation,
-      ad-content filters, and data-processing terms with counsel. The app calls
-      `setGDPRConsent(false)`, `setCCPA(true)` (do-not-sell), and
-      `is_deviceid_optout` for contextual/non-personalized ads; that does not
-      remove every regional notice or consent obligation.
+      ad-content filters, and data-processing terms with counsel. The app makes
+      **no privacy declarations by default** — it does not call
+      `setGDPRConsent`, `setCCPA`, or `is_deviceid_optout` — so LevelPlay runs in
+      its default posture and the advertising ID is available for dashboard
+      test-device matching and fill. The native API
+      (`configurePrivacyAsync` / `configurePrivacy`) still supports these
+      declarations for a future consent-management platform to call explicitly.
+      Regional consent obligations (GDPR/CCPA notices, do-not-sell, and any
+      contextual/non-personalized requirements) remain to be reviewed with
+      counsel and wired into a CMP before those markets.
 - [ ] Download the complete current authorized-seller list from the LevelPlay
       App-ads.txt dashboard, add `ownerdomain`, host it at the exact root domain used
       by the store listings, and verify it in the dashboard. Recheck it monthly
@@ -65,10 +71,10 @@ not replace a failed gate with an assumption.
 - [ ] Decide whether Android-only rewarded helpers are acceptable for launch and
       document this in review notes/support. Core gameplay remains identical.
 - [ ] 2026-07-17: migrated from direct Unity Ads to Unity LevelPlay
-      (`mediation-sdk:9.5.0`) because Unity de-prioritized direct integration
-      after April 1, 2026. Rewarded reward name/amount are defined on the
-      dashboard ad unit; keep the ad unit's reward at 1 so one completed ad grants
-      one helper use.
+      (`mediation-sdk:9.5.0`) with the Unity Ads adapter and SDK because Unity
+      de-prioritized direct integration after April 1, 2026. Rewarded reward
+      name/amount are defined on the dashboard ad unit; keep the ad unit's reward
+      at 1 so one completed ad grants one helper use.
 
 ## 4. Automated release gates
 
@@ -76,6 +82,7 @@ From a clean checkout:
 
 ```bash
 npm ci
+npm run release:preflight
 npm run verify
 npm run doctor
 npm audit --omit=dev
@@ -89,6 +96,8 @@ npm audit --omit=dev
 - [ ] Production dependency audit has no unresolved high/critical issue; review
       moderate issues for reachability and update `docs/SECURITY_AUDIT.md`.
 - [ ] GitHub CI is green on the exact commit.
+- [ ] Production preflight confirms non-placeholder LevelPlay IDs and HTTPS
+      privacy/support URLs in the EAS production environment.
 - [ ] The EAS release workflow validates against the current schema.
 
 ## 5. Native build gates
@@ -146,6 +155,8 @@ remains enabled.
 - [ ] Background, lock, rotate-at-system level, activity loss, and app kill during
       load/show: no crash and no false reward.
 - [ ] Late callback after timeout cannot grant a reward.
+- [ ] `onAdRewarded` arriving shortly after `onAdClosed` still grants exactly one
+      helper use; include at least one mediated Unity Ads creative.
 - [ ] Each helper earns no more than one ad-funded use per run, including after a
       force-kill/restore. A new run resets the cap.
 - [ ] Ads obey configured age/content/privacy choices and use production placement

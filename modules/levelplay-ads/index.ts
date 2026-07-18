@@ -1,6 +1,8 @@
 import { requireOptionalNativeModule } from "expo";
 
 export interface RowflareLevelPlayAdsNativeModule {
+  // Opt-in privacy declarations for a future consent-management flow.
+  // Initialization no longer requires this; a CMP may call it explicitly.
   configurePrivacyAsync(
     userConsent: boolean,
     userOptOut: boolean,
